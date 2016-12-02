@@ -35,13 +35,25 @@
 
    :documents (j/query db ["select * from invoices where account_id = ?" account-id])})
 
+(defn client-xml [client]
+  (xml/element :Customer {}
+               (xml/element :CustomerID {} (:id client))
+               (xml/element :AccountID {} "Desconhecido")
+               (xml/element :CustomerTaxID {} (:fiscal_id client))
+               (xml/element :CompanyName {} (:name client))
+               (xml/element :BillingAddress {}
+                            (xml/element :AddressDetail {} "Desconhecido")
+                            (xml/element :City {} "Desconhecido")
+                            (xml/element :PostalCode {} "0000-000")
+                            (xml/element :Country {} "PT"))
+               (xml/element :Telephone {} "Desconhecido")
+               (xml/element :Fax {} "Desconhecido")
+               (xml/element :Email {} "Desconhecido")
+               (xml/element :Website {} "Desconhecido")
+               (xml/element :SelfBillingIndicator {} "0")))
+
 (defn- write-clients [clients]
-  (map (fn [client]
-         (xml/element :Customer {}
-                      (xml/element :CustomerID {} (:id client))
-                      (xml/element :CompanyName {} (:name client))
-                      (xml/element :Email {} (:email client))))
-       clients))
+  (map client-xml clients))
 
 (defn- write-products [products]
   (map (fn [product]

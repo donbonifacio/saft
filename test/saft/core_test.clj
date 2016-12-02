@@ -3,10 +3,10 @@
             [clojure.data.xml :as xml]
             [saft.core :as core]))
 
-#_(deftest a-test
+(deftest a-test
   (core/foo))
 
-(deftest header-test
+(deftest header-xml-test
   (let [args
           {:year 2016
            :start-date "2016-01-01"
@@ -48,3 +48,37 @@
                 "</Header>")]
     (is (= expected
            (xml/emit-str (core/header-xml args account))))))
+
+(deftest client-xml-test
+  (let [args
+          {:year 2016
+           :start-date "2016-01-01"
+           :end-date "2016-12-31"
+           :created "2016-12-02"}
+
+        client
+          {:id 206417
+           :fiscal_id "123123123"
+           :name "Claudinha"}
+
+        expected
+          (str "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                "<Customer>"
+                  "<CustomerID>206417</CustomerID>"
+                  "<AccountID>Desconhecido</AccountID>"
+                  "<CustomerTaxID>123123123</CustomerTaxID>"
+                  "<CompanyName>Claudinha</CompanyName>"
+                  "<BillingAddress>"
+                    "<AddressDetail>Desconhecido</AddressDetail>"
+                    "<City>Desconhecido</City>"
+                    "<PostalCode>0000-000</PostalCode>"
+                    "<Country>PT</Country>"
+                  "</BillingAddress>"
+                  "<Telephone>Desconhecido</Telephone>"
+                  "<Fax>Desconhecido</Fax>"
+                  "<Email>Desconhecido</Email>"
+                  "<Website>Desconhecido</Website>"
+                  "<SelfBillingIndicator>0</SelfBillingIndicator>"
+                "</Customer>")]
+    (is (= expected
+           (xml/emit-str (core/client-xml client))))))
