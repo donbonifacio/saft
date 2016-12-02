@@ -12,12 +12,21 @@
                                   "address, postal_code, city "
                              "from accounts where id = ?" 5554])))
 
+#_(println (first (j/query db ["select distinct products.*
+                          from products
+                          inner join invoice_items on (products.id = invoice_items.product_id)
+                          inner join invoices on (invoices.id = invoice_items.invoice_id)
+                          where invoices.account_reset_id is null
+                          and invoices.account_id = ?
+                          " 5554])))
+
 (defn- fetch-all-data
   "Gets all needed data from storage"
   [account-id]
   {:account (first (j/query db ["select * from accounts where id = ?" account-id]))
 
-   :clients (j/query db [" select distinct client_versions.*
+   :clients (j/query db [" select distinct client_versions.id,
+                             name, fiscal_id
                          from client_versions
                          inner join invoices on (
                          invoices.client_id = client_versions.client_id 
@@ -25,7 +34,8 @@
                          where invoices.account_id = ?
                          and invoices.account_reset_id is null" account-id])
 
-   :products (j/query db ["select distinct products.*
+   :products (j/query db ["select distinct products.id,
+                            products.description, products.name
                           from products
                           inner join invoice_items on (products.id = invoice_items.product_id)
                           inner join invoices on (invoices.id = invoice_items.invoice_id)
@@ -55,12 +65,18 @@
 (defn- write-clients [clients]
   (map client-xml clients))
 
+(defn get-str [m k]
+  (apply str (filter #(<= 32 (int %) 126) (get m k ""))))
+
+(defn product-xml [product]
+  (xml/element :Product {}
+               (xml/element :ProductType {} "S")
+               (xml/element :ProductCode {} (get-str product :name))
+               (xml/element :ProductDescription {} (get-str product :description))
+               (xml/element :ProductNumberCode {} (get-str product :name))))
+
 (defn- write-products [products]
-  (map (fn [product]
-         (xml/element :Product {}
-                      (xml/element :ProductType {} "S")
-                      (xml/element :ProductCode {} (:id product))))
-       products))
+  (map product-xml products))
 
 (defn- write-invoice-items [data doc]
   (map (fn [item]

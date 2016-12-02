@@ -50,13 +50,7 @@
            (xml/emit-str (core/header-xml args account))))))
 
 (deftest client-xml-test
-  (let [args
-          {:year 2016
-           :start-date "2016-01-01"
-           :end-date "2016-12-31"
-           :created "2016-12-02"}
-
-        client
+  (let [client
           {:id 206417
            :fiscal_id "123123123"
            :name "Claudinha"}
@@ -82,3 +76,20 @@
                 "</Customer>")]
     (is (= expected
            (xml/emit-str (core/client-xml client))))))
+
+(deftest product-xml-test
+  (let [product
+          {:id 206417
+           :name "Item 3"
+           :description "w2WxmKul00"}
+
+        expected
+          (str "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                "<Product>"
+                  "<ProductType>S</ProductType>"
+                  "<ProductCode>Item 3</ProductCode>"
+                  "<ProductDescription>w2WxmKul00</ProductDescription>"
+                  "<ProductNumberCode>Item 3</ProductNumberCode>"
+                "</Product>")]
+    (is (= expected
+           (xml/emit-str (core/product-xml product))))))
