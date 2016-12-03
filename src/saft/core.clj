@@ -43,7 +43,10 @@
                           and invoices.account_id = ?
                           " account-id])
 
-   :documents (j/query db ["select * from invoices where account_id = ?" account-id])})
+   :documents (j/query db ["select sequence_number
+                           from invoices
+                           where account_id = ? and status <> 'draft'"
+                           account-id])})
 
 (defn client-xml [client]
   (xml/element :Customer {}
@@ -68,6 +71,9 @@
 (defn get-str [m k]
   (apply str (filter #(<= 32 (int %) 126) (get m k ""))))
 
+(defn get-date [m k]
+  (str (get m k)))
+
 (defn product-xml [product]
   (xml/element :Product {}
                (xml/element :ProductType {} "S")
@@ -78,19 +84,58 @@
 (defn- write-products [products]
   (map product-xml products))
 
-(defn- write-invoice-items [data doc]
+(defn- write-invoice-items [doc]
   (map (fn [item]
          (xml/element :Line {}
                       (xml/element :Quantity {} (:quantity item))))
        (j/query db ["select * from invoice_items where invoice_id = ?" (:id doc)])))
 
+(defn item-xml [idx item]
+  (xml/element :Line {}
+               (xml/element :LineNumber {} (inc idx))
+               (xml/element :ProductCode {} (get-str item :name))
+               (xml/element :ProductDescription {} (get-str item :description))
+               (xml/element :Quantity {} (:quantity item))
+               (xml/element :UnitOfMeasure {} (:unit item))
+               (xml/element :UnitPrice {} (:unit_price item))
+               (xml/element :TaxPointDate {} (:tax_point_date item))
+               (xml/element :Description {} (get-str item :description))
+               (xml/element :CreditAmount {} (:credit item))
+               (xml/element :Tax {}
+                            (xml/element :TaxType {} "IVA")
+                            (xml/element :TaxCountryRegion {} "PT")
+                            (xml/element :TaxCode {} "NOR")
+                            (xml/element :TaxPercentage {} "23.0"))))
+
+(defn invoice-xml [account doc]
+  (xml/element :Invoice {}
+               (xml/element :InvoiceNo {} (str (:sequence_number doc)))
+               (xml/element :DocumentStatus {}
+                            (xml/element :InvoiceStatus {} "A")
+                            (xml/element :InvoiceStatusDate {} "2016-07-01T15:06:33")
+                            (xml/element :SourceID {} (:id account))
+                            (xml/element :SourceBilling {} "P"))
+               (xml/element :Hash {} (:saft_hash doc))
+               (xml/element :HashControl {} 1)
+               (xml/element :Period {} 1)
+               (xml/element :InvoiceDate {} (get-date doc :date))
+               (xml/element :InvoiceType {} "FT")
+               (xml/element :SpecialRegimes {}
+                            (xml/element :SelfBillingIndicator {} 0)
+                            (xml/element :CashVATSchemeIndicator {} 0)
+                            (xml/element :ThirdPartiesBillingIndicator {} 0))
+               (xml/element :SourceID {} (:id account))
+               (xml/element :SystemEntryDate {} (get-date doc :created_at))
+               (xml/element :CustomerID {} 0)
+               (map-indexed item-xml (:items doc))
+               (xml/element :DocumentTotals {}
+                            (xml/element :TaxPayable {} (:tax doc))
+                            (xml/element :NetTotal {} (:total doc))
+                            (xml/element :GrossTotal {} (:total_with_taxes doc)))))
+
 (defn- write-documents [data docs]
-  (map (fn [doc]
-         (xml/element :SalesInvoices {}
-                      (xml/element :InvoiceNo {} (str (:sequence_number doc)))
-                      (xml/element :TaxPayable {} (:total doc))
-                      (write-invoice-items data doc)))
-       docs))
+  (xml/element :SalesInvoices {}
+    (map #(invoice-xml (:account data) %) docs)))
 
 (defn header-xml [args account]
   (xml/element :Header {}
@@ -113,9 +158,7 @@
                (xml/element :ProductCompanyTaxID {} "508025338")
                (xml/element :SoftwareCertificateNumber {})
                (xml/element :ProductID {})
-               (xml/element :ProductVersion {} "1.0")
-
-               ))
+               (xml/element :ProductVersion {} "1.0")))
 
 (defn- write-saft [data account]
   (xml/element :AuditFile {:xmlns "urn:OECD:StandardAuditFile-Tax:PT_1.03_01"
@@ -126,7 +169,6 @@
                             (write-products (:products data)))
                (xml/element :SourceDocuments {}
                             (write-documents data (:documents data)))))
-
 
 (defn ppxml [xml]
   (let [in (javax.xml.transform.stream.StreamSource.
@@ -146,16 +188,17 @@
 
 (defn foo
   []
-  (time
-    (let [account-id 5554
-          ;account-id 6599
-          data (fetch-all-data account-id)
-          file-name "/tmp/foo.xml"
-          account (:account data)
-          tags (write-saft data account)]
-      (println "Account-id:" account-id)
-      (println "Docs:" (count (:documents data)))
-      (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. file-name) "UTF-8")]
-        (xml/emit tags out-file))
-      (let [raw (slurp file-name)]
-        (println (ppxml raw))))))
+  (let [account-id 5554
+        ;account-id 6599
+        data (fetch-all-data account-id)
+        file-name "/tmp/foo.xml"
+        account (:account data)
+        tags (time (write-saft data account))]
+    (println "Account-id:" account-id)
+    (println "Docs:" (count (:documents data)))
+    (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. file-name) "UTF-8")]
+      (time (xml/emit tags out-file)))
+    (let [raw (slurp file-name)
+          formatted (time (ppxml raw))]
+      (spit "tmp/formatted.xml" formatted))))
+
