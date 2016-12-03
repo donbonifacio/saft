@@ -4,7 +4,11 @@
             [saft.core :as core]))
 
 (deftest a-test
-  (core/foo))
+  (core/generate-saft {:account-id 5554 #_6599
+                       :formatted true
+                       :begin "2016-01-01"
+                       :end "2016-12-31"
+                       :output "tmp/saft.xml"}))
 
 (deftest header-xml-test
   (let [args

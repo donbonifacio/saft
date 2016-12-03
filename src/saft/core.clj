@@ -34,31 +34,39 @@
 
 (defn- fetch-all-data
   "Gets all needed data from storage"
-  [account-id]
-  {:account (first (j/query db ["select * from accounts where id = ?" account-id]))
+  [{:keys [account-id begin end] :as args}]
+  (let [account (time-info "Fetch account"
+                  (first (j/query db ["select * from accounts where id = ?" account-id])))]
 
-   :clients (j/query db [" select distinct client_versions.id,
-                         name, fiscal_id
-                         from client_versions
-                         inner join invoices on (
-                         invoices.client_id = client_versions.client_id 
-                         and client_versions.version = invoices.client_version)
-                         where invoices.account_id = ?
-                         and invoices.account_reset_id is null" account-id])
+    {:account account
 
-   :products (j/query db ["select distinct products.id,
-                          products.description, products.name
-                          from products
-                          inner join invoice_items on (products.id = invoice_items.product_id)
-                          inner join invoices on (invoices.id = invoice_items.invoice_id)
-                          where invoices.account_reset_id is null
-                          and invoices.account_id = ?
-                          " account-id])
+     :clients (time-info "Fetch clients"
+                (j/query db [" select distinct client_versions.id,
+                           name, fiscal_id
+                           from client_versions
+                           inner join invoices on (
+                           invoices.client_id = client_versions.client_id 
+                           and client_versions.version = invoices.client_version)
+                           where invoices.account_id = ?
+                           and invoices.account_reset_id is null" account-id]))
 
-   :documents (j/query db ["select id, sequence_number
-                           from invoices
-                           where account_id = ? and status <> 'draft'"
-                           account-id])})
+     :products (time-info "Fetch products"
+                  (j/query db ["select distinct products.id,
+                                products.description, products.name
+                                from products
+                                inner join invoice_items on (products.id = invoice_items.product_id)
+                                inner join invoices on (invoices.id = invoice_items.invoice_id)
+                                where invoices.account_reset_id is null
+                                and invoices.account_id = ?
+                                " account-id]))
+
+     :documents (time-info "Fetch documents"
+                  (j/query db [(str "select id, sequence_number
+                               from invoices
+                               where account_id = ?
+                                 and " (accounting-relevant-totals/saft-types-condition account) "
+                                 and status in (" (accounting-relevant-totals/saft-status-str)  ")")
+                             account-id]))}))
 
 (defn client-xml [client]
   (xml/element :Customer {}
@@ -161,9 +169,8 @@
   (let [cache {}
         cache (preload-docs data docs)
         totals (time-info "Accouting relevant totals query"
-                 (accounting-relevant-totals/run db (merge data
-                                                       {:begin "2004-01-01"
-                                                        :end "2024-01-01"})))]
+                 (accounting-relevant-totals/run db data))]
+    (println "Totals: " totals)
     (xml/element :SalesInvoices {}
                  (xml/element :NumberOfEntries {} (:number_of_entries totals))
                  (xml/element :TotalDebit {} (:total_debit totals))
@@ -219,20 +226,18 @@
     (.transform transformer in out)
     (-> out .getWriter .toString)))
 
-(defn foo
-  []
-  (time-info "Complete SAFT"
-    (let [account-id 5554
-          account-id 6599
-          data (fetch-all-data account-id)
-          file-name "/tmp/foo.xml"
-          account (:account data)
-          tags (time-info "Build XML structure" (write-saft data account))]
-      (println "Account-id:" account-id)
-      (println "Docs:" (count (:documents data)))
-      (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. file-name) "UTF-8")]
-        (time-info "Write to file" (xml/emit tags out-file)))
-      (let [raw (slurp file-name)
-            formatted (time-info "Format XML" (ppxml raw))]
-        (spit "tmp/formatted.xml" formatted)))))
+(defn generate-saft
+  [{:keys [account-id output formatted] :as args}]
+  (time-info (str "Complete SAFT [" output "]")
+    (do
+      (println "---------------------")
+      (println "SAF-T for Account-id:" account-id)
+      (let [data (merge args (fetch-all-data args))
+            account (:account data)
+            tags (time-info "Build XML structure" (write-saft data account))]
+        (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. output) "UTF-8")]
+          (time-info "Write to file" (xml/emit tags out-file)))
+        (let [raw (slurp output)
+              formatted (time-info "Format XML" (ppxml raw))]
+          (spit output formatted))))))
 
