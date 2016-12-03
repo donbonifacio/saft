@@ -18,23 +18,6 @@
      (println (str ~info ": " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
      ret#))
 
-#_(println (accounting-relevant-totals/run db {:begin "2004-01-01"
-                                               :end "2024-01-01 "
-                                               :account {:id 5554}}))
-
-#_(println (first (j/query db ["select organization_name, fiscal_id, "
-                               "email, "
-                               "address, postal_code, city "
-                               "from accounts where id = ?" 5554])))
-
-#_(println (first (j/query db ["select distinct products.*
-                               from products
-                               inner join invoice_items on (products.id = invoice_items.product_id)
-                               inner join invoices on (invoices.id = invoice_items.invoice_id)
-                               where invoices.account_reset_id is null
-                               and invoices.account_id = ?
-                               " 5554])))
-
 (defn- fetch-all-data
   "Gets all needed data from storage"
   [{:keys [account-id begin end] :as args}]
@@ -48,26 +31,28 @@
                              name, fiscal_id
                              from client_versions
                              inner join invoices on (
-                             invoices.client_id = client_versions.client_id 
-                             and client_versions.version = invoices.client_version)
+                              invoices.client_id = client_versions.client_id 
+                              and client_versions.version = invoices.client_version)
                              where invoices.account_id = ?
-                             and " (accounting-relevant-totals/saft-types-condition account) "
-                             and status in (" (accounting-relevant-totals/saft-status-str)  ")
-                             and (invoices.date between '" begin "' and '" end "')
-                             and invoices.account_reset_id is null")
+                               and " (accounting-relevant-totals/saft-types-condition account) "
+                               and status in (" (accounting-relevant-totals/saft-status-str)  ")
+                               and (invoices.date between '" begin "' and '" end "')
+                               and invoices.account_reset_id is null
+                             order by client_versions.id asc")
                              account-id]))
 
      :products (time-info "Fetch products"
                   (j/query db [(str "select distinct products.id,
-                                  products.description, products.name
+                                    products.description, products.name
                                   from products
-                                  inner join invoice_items on (products.id = invoice_items.product_id)
-                                  inner join invoices on (invoices.id = invoice_items.invoice_id)
+                                    inner join invoice_items on (products.id = invoice_items.product_id)
+                                    inner join invoices on (invoices.id = invoice_items.invoice_id)
                                   where invoices.account_reset_id is null
                                     and invoices.account_id = ?
                                     and " (accounting-relevant-totals/saft-types-condition account) "
                                     and status in (" (accounting-relevant-totals/saft-status-str)  ")
-                                    and (invoices.date between '" begin "' and '" end "')")
+                                    and (invoices.date between '" begin "' and '" end "')
+                                  order by products.id asc")
                                account-id]))
 
      :documents (time-info "Fetch documents"
@@ -76,7 +61,8 @@
                                where account_id = ?
                                  and " (accounting-relevant-totals/saft-types-condition account) "
                                  and status in (" (accounting-relevant-totals/saft-status-str)  ")
-                                 and (invoices.date between '" begin "' and '" end "');")
+                                 and (invoices.date between '" begin "' and '" end "')
+                               order by invoices.id asc;")
                              account-id]))}))
 
 (defn client-xml [client]
