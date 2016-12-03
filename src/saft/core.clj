@@ -1,11 +1,16 @@
 (ns saft.core
   (:require [clojure.data.xml :as xml]
-            [clojure.java.jdbc :as j]))
+            [clojure.java.jdbc :as j]
+            [saft.accounting-relevant-totals :as accounting-relevant-totals]))
 
 (def db {:classname "com.mysql.jdbc.Driver" 
          :subprotocol "mysql"
          :subname "//localhost:3306/invoicexpress"
          :user "root"})
+
+#_(println (accounting-relevant-totals/run db {:begin "2004-01-01"
+                                             :end "2024-01-01 "
+                                             :account {:id 5554}}))
 
 #_(println (first (j/query db ["select organization_name, fiscal_id, "
                                   "email, "
@@ -147,8 +152,14 @@
 
 (defn- write-documents [data docs]
   (let [cache {}
-        cache (preload-docs data docs)]
+        cache (preload-docs data docs)
+        totals (accounting-relevant-totals/run db (merge data
+                                                          {:begin "2004-01-01"
+                                                           :end "2024-01-01"}))]
     (xml/element :SalesInvoices {}
+      (xml/element :NumberOfEntries {} (:number_of_entries totals))
+      (xml/element :TotalDebit {} (:total_debit totals))
+      (xml/element :TotalCredit {} (:total_credit totals))
       (map #(invoice-xml cache (:account data) %) docs))))
 
 (defn header-xml [args account]
@@ -203,7 +214,7 @@
 (defn foo
   []
   (let [account-id 5554
-        account-id 6599
+        ;account-id 6599
         data (fetch-all-data account-id)
         file-name "/tmp/foo.xml"
         account (:account data)
