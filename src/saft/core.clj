@@ -1,6 +1,7 @@
 (ns saft.core
   (:require [clojure.data.xml :as xml]
             [clojure.java.jdbc :as j]
+            [saft.tax-table :as tax-table]
             [saft.accounting-relevant-totals :as accounting-relevant-totals]))
 
 (def db {:classname "com.mysql.jdbc.Driver" 
@@ -200,13 +201,19 @@
                (xml/element :ProductID {})
                (xml/element :ProductVersion {} "1.0")))
 
+(defn write-tax-table [data]
+  (let [tax-table (time-info "Fetch tax table" (tax-table/run db data))]
+    (xml/element :TaxTable {}
+                 (map tax-table/tax-table-entry-xml tax-table))))
+
 (defn- write-saft [data account]
   (xml/element :AuditFile {:xmlns "urn:OECD:StandardAuditFile-Tax:PT_1.03_01"
                            "xmlns:xsi" "http://www.w3.org/2001/XMLSchema-instance"}
                (header-xml {} account)
                (xml/element :MasterFiles {}
                             (write-clients (:clients data))
-                            (write-products (:products data)))
+                            (write-products (:products data))
+                            (write-tax-table data))
                (xml/element :SourceDocuments {}
                             (write-documents data (:documents data)))))
 
