@@ -163,5 +163,5 @@
                   "</DocumentTotals>"
                 "</Invoice>")]
     (is (= expected
-           (xml/emit-str (core/invoice-xml account invoice))))))
+           (xml/emit-str (core/invoice-xml {} account invoice))))))
 
