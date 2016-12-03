@@ -8,22 +8,29 @@
          :subname "//localhost:3306/invoicexpress"
          :user "root"})
 
+(defmacro time-info
+  [info expr]
+  `(let [start# (. System (nanoTime))
+         ret# ~expr]
+     (println (str ~info ": " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
+     ret#))
+
 #_(println (accounting-relevant-totals/run db {:begin "2004-01-01"
-                                             :end "2024-01-01 "
-                                             :account {:id 5554}}))
+                                               :end "2024-01-01 "
+                                               :account {:id 5554}}))
 
 #_(println (first (j/query db ["select organization_name, fiscal_id, "
-                                  "email, "
-                                  "address, postal_code, city "
-                             "from accounts where id = ?" 5554])))
+                               "email, "
+                               "address, postal_code, city "
+                               "from accounts where id = ?" 5554])))
 
 #_(println (first (j/query db ["select distinct products.*
-                          from products
-                          inner join invoice_items on (products.id = invoice_items.product_id)
-                          inner join invoices on (invoices.id = invoice_items.invoice_id)
-                          where invoices.account_reset_id is null
-                          and invoices.account_id = ?
-                          " 5554])))
+                               from products
+                               inner join invoice_items on (products.id = invoice_items.product_id)
+                               inner join invoices on (invoices.id = invoice_items.invoice_id)
+                               where invoices.account_reset_id is null
+                               and invoices.account_id = ?
+                               " 5554])))
 
 (defn- fetch-all-data
   "Gets all needed data from storage"
@@ -31,7 +38,7 @@
   {:account (first (j/query db ["select * from accounts where id = ?" account-id]))
 
    :clients (j/query db [" select distinct client_versions.id,
-                             name, fiscal_id
+                         name, fiscal_id
                          from client_versions
                          inner join invoices on (
                          invoices.client_id = client_versions.client_id 
@@ -40,7 +47,7 @@
                          and invoices.account_reset_id is null" account-id])
 
    :products (j/query db ["select distinct products.id,
-                            products.description, products.name
+                          products.description, products.name
                           from products
                           inner join invoice_items on (products.id = invoice_items.product_id)
                           inner join invoices on (invoices.id = invoice_items.invoice_id)
@@ -153,14 +160,15 @@
 (defn- write-documents [data docs]
   (let [cache {}
         cache (preload-docs data docs)
-        totals (accounting-relevant-totals/run db (merge data
-                                                          {:begin "2004-01-01"
-                                                           :end "2024-01-01"}))]
+        totals (time-info "Accouting relevant totals query"
+                 (accounting-relevant-totals/run db (merge data
+                                                       {:begin "2004-01-01"
+                                                        :end "2024-01-01"})))]
     (xml/element :SalesInvoices {}
-      (xml/element :NumberOfEntries {} (:number_of_entries totals))
-      (xml/element :TotalDebit {} (:total_debit totals))
-      (xml/element :TotalCredit {} (:total_credit totals))
-      (map #(invoice-xml cache (:account data) %) docs))))
+                 (xml/element :NumberOfEntries {} (:number_of_entries totals))
+                 (xml/element :TotalDebit {} (:total_debit totals))
+                 (xml/element :TotalCredit {} (:total_credit totals))
+                 (map #(invoice-xml cache (:account data) %) docs))))
 
 (defn header-xml [args account]
   (xml/element :Header {}
@@ -213,17 +221,18 @@
 
 (defn foo
   []
-  (let [account-id 5554
-        ;account-id 6599
-        data (fetch-all-data account-id)
-        file-name "/tmp/foo.xml"
-        account (:account data)
-        tags (time (write-saft data account))]
-    (println "Account-id:" account-id)
-    (println "Docs:" (count (:documents data)))
-    (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. file-name) "UTF-8")]
-      (time (xml/emit tags out-file)))
-    (let [raw (slurp file-name)
-          formatted (time (ppxml raw))]
-      (spit "tmp/formatted.xml" formatted))))
+  (time-info "Complete SAFT"
+    (let [account-id 5554
+          account-id 6599
+          data (fetch-all-data account-id)
+          file-name "/tmp/foo.xml"
+          account (:account data)
+          tags (time-info "Build XML structure" (write-saft data account))]
+      (println "Account-id:" account-id)
+      (println "Docs:" (count (:documents data)))
+      (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. file-name) "UTF-8")]
+        (time-info "Write to file" (xml/emit tags out-file)))
+      (let [raw (slurp file-name)
+            formatted (time-info "Format XML" (ppxml raw))]
+        (spit "tmp/formatted.xml" formatted)))))
 
