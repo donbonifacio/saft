@@ -107,7 +107,10 @@
 
 (defn fetch-account-versions
   [{:keys [account] :as data} account-versions]
-  (if-let [account-versions (seq (distinct account-versions))]
+  (if-let [account-versions (->> account-versions
+                                 (remove nil?)
+                                 (distinct)
+                                 (seq))]
     (time-info (str "Fetch " (count account-versions) " account versions")
       (j/query db [(str
                      "select id, version, iva_caixa, factura_recibo
