@@ -44,31 +44,39 @@
     {:account account
 
      :clients (time-info "Fetch clients"
-                (j/query db [" select distinct client_versions.id,
-                           name, fiscal_id
-                           from client_versions
-                           inner join invoices on (
-                           invoices.client_id = client_versions.client_id 
-                           and client_versions.version = invoices.client_version)
-                           where invoices.account_id = ?
-                           and invoices.account_reset_id is null" account-id]))
+                (j/query db [(str " select distinct client_versions.id,
+                             name, fiscal_id
+                             from client_versions
+                             inner join invoices on (
+                             invoices.client_id = client_versions.client_id 
+                             and client_versions.version = invoices.client_version)
+                             where invoices.account_id = ?
+                             and " (accounting-relevant-totals/saft-types-condition account) "
+                             and status in (" (accounting-relevant-totals/saft-status-str)  ")
+                             and (invoices.date between '" begin "' and '" end "')
+                             and invoices.account_reset_id is null")
+                             account-id]))
 
      :products (time-info "Fetch products"
-                  (j/query db ["select distinct products.id,
-                                products.description, products.name
-                                from products
-                                inner join invoice_items on (products.id = invoice_items.product_id)
-                                inner join invoices on (invoices.id = invoice_items.invoice_id)
-                                where invoices.account_reset_id is null
-                                and invoices.account_id = ?
-                                " account-id]))
+                  (j/query db [(str "select distinct products.id,
+                                  products.description, products.name
+                                  from products
+                                  inner join invoice_items on (products.id = invoice_items.product_id)
+                                  inner join invoices on (invoices.id = invoice_items.invoice_id)
+                                  where invoices.account_reset_id is null
+                                    and invoices.account_id = ?
+                                    and " (accounting-relevant-totals/saft-types-condition account) "
+                                    and status in (" (accounting-relevant-totals/saft-status-str)  ")
+                                    and (invoices.date between '" begin "' and '" end "')")
+                               account-id]))
 
      :documents (time-info "Fetch documents"
                   (j/query db [(str "select id, sequence_number
                                from invoices
                                where account_id = ?
                                  and " (accounting-relevant-totals/saft-types-condition account) "
-                                 and status in (" (accounting-relevant-totals/saft-status-str)  ")")
+                                 and status in (" (accounting-relevant-totals/saft-status-str)  ")
+                                 and (invoices.date between '" begin "' and '" end "');")
                              account-id]))}))
 
 (defn client-xml [client]
@@ -102,10 +110,12 @@
   (map product-xml products))
 
 (defn fetch-items [doc-ids]
-  (j/query db [(str
-                 "select id, invoice_id, name, description, quantity, unit_price
-                 from invoice_items
-                 where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
+  (if-let [doc-ids (seq doc-ids)]
+    (j/query db [(str
+                   "select id, invoice_id, name, description, quantity, unit_price
+                   from invoice_items
+                   where invoice_id in (" (clojure.string/join "," doc-ids) ")")])
+    []))
 
 (defn prepare-items [cache account doc]
   (cond
