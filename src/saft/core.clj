@@ -56,7 +56,8 @@
                                account-id]))
 
      :documents (time-info "Fetch documents"
-                  (j/query db [(str "select id, sequence_number
+                  (j/query db [(str "select id, sequence_number,
+                                    account_id, account_version
                                from invoices
                                where account_id = ?
                                  and " (accounting-relevant-totals/saft-types-condition account) "
@@ -97,30 +98,48 @@
 
 (defn fetch-items [doc-ids]
   (if-let [doc-ids (seq doc-ids)]
-    (j/query db [(str
-                   "select id, invoice_id, name, description, quantity, unit_price
-                   from invoice_items
-                   where invoice_id in (" (clojure.string/join "," doc-ids) ")")])
+    (time-info (str "Fetch items for " (count doc-ids) " document(s)")
+      (j/query db [(str
+                     "select id, invoice_id, name, description, quantity, unit_price
+                     from invoice_items
+                     where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
+    []))
+
+(defn fetch-account-versions
+  [{:keys [account] :as data} account-versions]
+  (if-let [account-versions (seq (distinct account-versions))]
+    (time-info (str "Fetch " (count account-versions) " account versions")
+      (j/query db [(str
+                     "select id, version, iva_caixa, factura_recibo
+                     from account_versions
+                     where account_id = " (:id account) "
+                        and version in (" (clojure.string/join "," account-versions) ")")]))
     []))
 
 (defn prepare-items [cache account doc]
   (cond
     (some? (:items doc)) doc
-    (some? (get cache (:id doc))) (assoc doc :items (get cache :id doc))
+    (some? (get-in cache [:items (:id doc)])) (assoc doc :items (get-in cache [:items (:id doc)]))
     :else (assoc doc :items (fetch-items [(:id doc)]))))
 
 (defn invoice-xml [cache account doc]
   (let [doc (prepare-items cache account doc)]
-    (document/document-xml account doc)))
+    (document/document-xml cache account doc)))
 
 (defn preload-docs [data docs]
   (let [doc-ids (map :id docs)
         items (fetch-items doc-ids)]
     (group-by :invoice_id items)))
 
+(defn preload-account-versions [data docs]
+  (let [account-versions (map :account_version docs)
+        versions (fetch-account-versions data account-versions)]
+    (group-by :version versions)))
+
 (defn- write-documents [data docs]
   (let [cache {}
-        cache (preload-docs data docs)
+        cache {:items (preload-docs data docs)
+               :account_versions (preload-account-versions data docs)}
         totals (time-info "Accouting relevant totals query"
                  (accounting-relevant-totals/run db data))]
     (println "Totals: " totals)

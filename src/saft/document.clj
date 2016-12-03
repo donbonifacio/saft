@@ -21,7 +21,7 @@
                             (xml/element :TaxPercentage {} "23.0"))))
 
 (defn document-xml
-  [account doc]
+  [cache account doc]
   (xml/element :Invoice {}
                  (xml/element :InvoiceNo {} (str (:sequence_number doc)))
                  (xml/element :DocumentStatus {}
