@@ -20,12 +20,17 @@
                        order by products.id asc")
                  account-id])))
 
+(defn description [product]
+  (if (or (nil? (:description product)) (empty? (:description product)))
+    (common/get-str product :name 199)
+    (common/get-str product :description 199)))
+
 (defn product-xml [product]
   (xml/element :Product {}
                (xml/element :ProductType {} "S")
-               (xml/element :ProductCode {} (common/get-str product :name))
-               (xml/element :ProductDescription {} (common/get-str product :description))
-               (xml/element :ProductNumberCode {} (common/get-str product :name))))
+               (xml/element :ProductCode {} (common/get-str product :name 59))
+               (xml/element :ProductDescription {} (description product))
+               (xml/element :ProductNumberCode {} (common/get-str product :name 49))))
 
 (defn products-xml [products]
   (map product-xml products))
