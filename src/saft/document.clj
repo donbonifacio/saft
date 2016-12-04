@@ -3,12 +3,14 @@
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
     [saft.common :as common]
+    [saft.account :as account]
     [saft.item :as item]))
 
 (defn documents-query
   [{:keys [db account-id account begin end]}]
   (common/time-info "[SQL] Fetch documents"
-     (j/query db [(str "select id, sequence_number,
+     (j/query db [(str "select id, type, sequence_number
+                          document_number, document_serie,
                           account_id, account_version
                         from invoices
                         where account_id = ?
@@ -24,11 +26,46 @@
     (some? (get-in cache [:items (:id doc)])) (assoc doc :items (get-in cache [:items (:id doc)]))
     :else (assert nil "No items!")))
 
+(def type-hash
+  {nil "FT"
+   "Invoice" "FT"
+   "FacturaRecibo" "FR"
+   "InvoiceReceipt" "FR"
+   "SimplifiedInvoice" "FS"
+   "DebitNote" "ND"
+   "CreditNote" "NC"
+   "CashInvoice" "VD"})
+
+(defn convert-factura-recibo
+  "Converts Invoice type in invoice Receit based on account"
+  [account type-name]
+  (if (and (= "Invoice" type-name) (:factura_recibo account))
+    "InvoiceReceipt"
+    type-name))
+
+(defn type-code
+  "Transforms a type name in a type code. Considers account version"
+  [account type-name]
+  (let [type-name (convert-factura-recibo account type-name)
+        code (get type-hash type-name)]
+    (assert code (str "No code for " type-name))
+    code))
+
+(defn number
+  "Gets the proper document number. Tries to get the account version
+  for the document via the cache."
+  [cache account doc]
+  (str (type-code (account/for-document cache account doc) (:type doc))
+       " "
+       (:document_serie doc)
+       "/"
+       (:document_number doc)))
+
 (defn document-xml
   [cache account doc]
   (let [doc (prepare-items cache account doc)]
     (xml/element :Invoice {}
-                   (xml/element :InvoiceNo {} (str (:sequence_number doc)))
+                   (xml/element :InvoiceNo {} (number cache account doc))
                    (xml/element :DocumentStatus {}
                                 (xml/element :InvoiceStatus {} "A")
                                 (xml/element :InvoiceStatusDate {} "2016-07-01T15:06:33")

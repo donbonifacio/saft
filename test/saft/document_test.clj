@@ -13,6 +13,8 @@
            :created_at "2016-07-01T15:06:33"
            :saft_hash "N9rCtcNw7IPkCZQa7rOS28nxcb1AerYOJI8cJZaGuxPwgzWHCzIAsF8B2C5VK5tso6Bqe+pu0ixTgYgehxAwLeK9s9tT4IJMDBlodAwi9lzCdvq2GKU3NwT7aId+3ODyKBYoERAu+wxWAN7Qq+W9cOC7K4FeTbYLgWN2PqP9NIs="
            :sequence_number "FT 2013/69"
+           :document_serie "2013"
+           :document_number "69"
            :tax "3.68"
            :total "16.00"
            :total_with_taxes "19.68"
@@ -73,3 +75,17 @@
     (is (= expected
            (xml/emit-str (document/document-xml {} account invoice))))))
 
+(deftest type-code-test
+  (is (= "FT" (document/type-code {} nil)))
+  (is (= "FT" (document/type-code {} "Invoice")))
+  (is (= "FR" (document/type-code {} "InvoiceReceipt")))
+  (is (= "FS" (document/type-code {} "SimplifiedInvoice")))
+  (is (= "ND" (document/type-code {} "DebitNote")))
+  (is (= "NC" (document/type-code {} "CreditNote")))
+  (is (= "VD" (document/type-code {} "CashInvoice")))
+  (is (= "FR" (document/type-code {:factura_recibo true} "Invoice"))))
+
+(deftest number-test
+  (= "FT A/1" (document/number {} {} {:type "Invoice"
+                                      :document_serie "A"
+                                      :document_number "1"})))

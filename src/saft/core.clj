@@ -42,7 +42,7 @@
 (defn- write-documents [data docs]
   (let [cache {}
         cache {:items (preload-docs data docs)
-               :account_versions (preload-account-versions data docs)}
+               :account-versions (preload-account-versions data docs)}
         totals (accounting-relevant-totals/run db data)]
     (println "Totals: " totals)
     (xml/element :SalesInvoices {}

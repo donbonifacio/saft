@@ -23,3 +23,9 @@
                       and version in (" (clojure.string/join "," account-versions) ")")]))
     []))
 
+(defn for-document
+  "Gets the given account or the version of available on cache"
+  [cache account doc]
+  (if-let [version (:account_version doc)]
+    (get-in cache [:account-versions version] account)
+    account))
