@@ -1,7 +1,18 @@
 (ns saft.item
   (:require
     [clojure.data.xml :as xml]
+    [clojure.java.jdbc :as j]
     [saft.common :as common]))
+
+(defn items-query
+  [{:keys [db]} doc-ids]
+  (if-let [doc-ids (seq doc-ids)]
+    (common/time-info (str "[SQL] Fetch items for " (count doc-ids) " document(s)")
+               (j/query db [(str
+                              "select id, invoice_id, name, description, quantity, unit_price
+                              from invoice_items
+                              where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
+    []))
 
 (defn item-xml [idx item]
   (xml/element :Line {}

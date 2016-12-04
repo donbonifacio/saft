@@ -6,6 +6,11 @@
             [saft.tax-table :as tax-table]
             [saft.common :as common]
             [saft.document :as document]
+            [saft.item :as item]
+            [saft.client :as client]
+            [saft.account :as account]
+            [saft.header :as header]
+            [saft.product :as product]
             [saft.accounting-relevant-totals :as accounting-relevant-totals]))
 
 (def db {:classname "com.mysql.jdbc.Driver" 
@@ -16,114 +21,22 @@
 (defn- fetch-all-data
   "Gets all needed data from storage"
   [{:keys [account-id begin end] :as args}]
-  (let [account (common/time-info "[SQL] Fetch account"
-                           (first (j/query db ["select * from accounts where id = ?" account-id])))
+  (let [account (account/account-query args)
         args (assoc args :account account)]
 
     {:account account
-
-     :clients (common/time-info "[SQL] Fetch clients"
-                         (j/query db [(str " select distinct client_versions.id,
-                                           name, fiscal_id
-                                           from client_versions
-                                           inner join invoices on (
-                                           invoices.client_id = client_versions.client_id 
-                                           and client_versions.version = invoices.client_version)
-                                           where invoices.account_id = ?
-                                           and " (common/saft-types-condition account) "
-                                           and status in (" (common/saft-status-str)  ")
-                                                                                                          and (invoices.date between '" begin "' and '" end "')
-                                                                                                                                                            and invoices.account_reset_id is null
-                                                                                                                                                            order by client_versions.id asc")
-                                      account-id]))
-
-     :products (common/time-info "[SQL] Fetch products"
-                          (j/query db [(str "select distinct products.id,
-                                            products.description, products.name
-                                            from products
-                                            inner join invoice_items on (products.id = invoice_items.product_id)
-                                            inner join invoices on (invoices.id = invoice_items.invoice_id)
-                                            where invoices.account_reset_id is null
-                                            and invoices.account_id = ?
-                                            and " (common/saft-types-condition account) "
-                                            and status in (" (common/saft-status-str)  ")
-                                                                                                           and (invoices.date between '" begin "' and '" end "')
-                                                                                                                                                             order by products.id asc")
-                                       account-id]))
-
+     :clients (client/clients-query args)
+     :products (product/products-query args)
      :documents (document/documents-query args)}))
-
-(defn client-xml [client]
-  (xml/element :Customer {}
-               (xml/element :CustomerID {} (:id client))
-               (xml/element :AccountID {} "Desconhecido")
-               (xml/element :CustomerTaxID {} (:fiscal_id client))
-               (xml/element :CompanyName {} (:name client))
-               (xml/element :BillingAddress {}
-                            (xml/element :AddressDetail {} "Desconhecido")
-                            (xml/element :City {} "Desconhecido")
-                            (xml/element :PostalCode {} "0000-000")
-                            (xml/element :Country {} "PT"))
-               (xml/element :Telephone {} "Desconhecido")
-               (xml/element :Fax {} "Desconhecido")
-               (xml/element :Email {} "Desconhecido")
-               (xml/element :Website {} "Desconhecido")
-               (xml/element :SelfBillingIndicator {} "0")))
-
-(defn- write-clients [clients]
-  (map client-xml clients))
-
-(defn product-xml [product]
-  (xml/element :Product {}
-               (xml/element :ProductType {} "S")
-               (xml/element :ProductCode {} (common/get-str product :name))
-               (xml/element :ProductDescription {} (common/get-str product :description))
-               (xml/element :ProductNumberCode {} (common/get-str product :name))))
-
-(defn- write-products [products]
-  (map product-xml products))
-
-(defn fetch-items [doc-ids]
-  (if-let [doc-ids (seq doc-ids)]
-    (common/time-info (str "[SQL] Fetch items for " (count doc-ids) " document(s)")
-               (j/query db [(str
-                              "select id, invoice_id, name, description, quantity, unit_price
-                              from invoice_items
-                              where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
-    []))
-
-(defn fetch-account-versions
-  [{:keys [account] :as data} account-versions]
-  (if-let [account-versions (->> account-versions
-                                 (remove nil?)
-                                 (distinct)
-                                 (seq))]
-    (common/time-info (str "[SQL] Fetch " (count account-versions) " account versions")
-               (j/query db [(str
-                              "select id, version, iva_caixa, factura_recibo
-                              from account_versions
-                              where account_id = " (:id account) "
-                              and version in (" (clojure.string/join "," account-versions) ")")]))
-    []))
-
-(defn prepare-items [cache account doc]
-  (cond
-    (some? (:items doc)) doc
-    (some? (get-in cache [:items (:id doc)])) (assoc doc :items (get-in cache [:items (:id doc)]))
-    :else (assoc doc :items (fetch-items [(:id doc)]))))
-
-(defn invoice-xml [cache account doc]
-  (let [doc (prepare-items cache account doc)]
-    (document/document-xml cache account doc)))
 
 (defn preload-docs [data docs]
   (let [doc-ids (map :id docs)
-        items (fetch-items doc-ids)]
+        items (item/items-query data doc-ids)]
     (group-by :invoice_id items)))
 
 (defn preload-account-versions [data docs]
   (let [account-versions (map :account_version docs)
-        versions (fetch-account-versions data account-versions)]
+        versions (account/account-versions-query data account-versions)]
     (group-by :version versions)))
 
 (defn- write-documents [data docs]
@@ -136,30 +49,7 @@
                  (xml/element :NumberOfEntries {} (:number_of_entries totals))
                  (xml/element :TotalDebit {} (:total_debit totals))
                  (xml/element :TotalCredit {} (:total_credit totals))
-                 (map #(invoice-xml cache (:account data) %) docs))))
-
-(defn header-xml [args account]
-  (xml/element :Header {}
-               (xml/element :AuditFileVersion {} "1.03_01")
-               (xml/element :CompanyID {} (:fiscal_id account))
-               (xml/element :TaxRegistrationNumber {} (:fiscal_id account))
-               (xml/element :TaxAccountingBasis {} "F")
-               (xml/element :CompanyName {} (:organization_name account))
-               (xml/element :CompanyAddress {}
-                            (xml/element :AddressDetail {} (:address account))
-                            (xml/element :City {} (:city account))
-                            (xml/element :PostalCode {} (:postal_code account))
-                            (xml/element :Country {} "PT"))
-               (xml/element :FiscalYear {} (:year args))
-               (xml/element :StartDate {} (:start-date args))
-               (xml/element :EndDate {} (:end-date args))
-               (xml/element :CurrencyCode {} "EUR")
-               (xml/element :DateCreated {} (:created args))
-               (xml/element :TaxEntity {} "Global")
-               (xml/element :ProductCompanyTaxID {} "508025338")
-               (xml/element :SoftwareCertificateNumber {})
-               (xml/element :ProductID {})
-               (xml/element :ProductVersion {} "1.0")))
+                 (map #(document/document-xml cache (:account data) %) docs))))
 
 (defn write-tax-table [data]
   (let [tax-table (tax-table/run db data)]
@@ -169,10 +59,10 @@
 (defn- write-saft [data account]
   (xml/element :AuditFile {:xmlns "urn:OECD:StandardAuditFile-Tax:PT_1.03_01"
                            "xmlns:xsi" "http://www.w3.org/2001/XMLSchema-instance"}
-               (header-xml {} account)
+               (header/header-xml {} account)
                (xml/element :MasterFiles {}
-                            (write-clients (:clients data))
-                            (write-products (:products data))
+                            (client/clients-xml (:clients data))
+                            (product/products-xml (:products data))
                             (write-tax-table data))
                (xml/element :SourceDocuments {}
                             (write-documents data (:documents data)))))
