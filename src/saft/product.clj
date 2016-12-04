@@ -8,7 +8,7 @@
   [{:keys [db account-id account begin end]}]
   (common/time-info "[SQL] Fetch products"
     (j/query db [(str "select distinct products.id,
-                         products.description, products.name
+                         products.description, products.name, products.unit
                        from products
                          inner join invoice_items on (products.id = invoice_items.product_id)
                          inner join invoices on (invoices.id = invoice_items.invoice_id)
@@ -25,9 +25,20 @@
     (common/get-str product :name 199)
     (common/get-str product :description 199)))
 
+(defn product-code [product]
+  (let [unit (:unit product)]
+    (case unit
+      "hour" "S"
+      "day" "S"
+      "month" "S"
+      "unit" "P"
+      "other" "O"
+      "service" "S"
+      "S")))
+
 (defn product-xml [product]
   (xml/element :Product {}
-               (xml/element :ProductType {} "S")
+               (xml/element :ProductType {} (product-code product))
                (xml/element :ProductCode {} (common/get-str product :name 59))
                (xml/element :ProductDescription {} (description product))
                (xml/element :ProductNumberCode {} (common/get-str product :name 49))))

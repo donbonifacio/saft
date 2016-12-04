@@ -41,4 +41,4 @@
                (xml/element :TaxCountryRegion {} (region tax))
                (xml/element :TaxCode {} (code tax))
                (xml/element :Description {} (:name tax))
-               (xml/element :Percentage {} (:value tax))))
+               (xml/element :TaxPercentage {} (:value tax))))
