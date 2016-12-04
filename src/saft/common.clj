@@ -8,3 +8,10 @@
 (defn get-date [m k]
   (str (get m k)))
 
+(defmacro time-info
+  [info expr]
+  `(let [start# (. System (nanoTime))
+         ret# ~expr]
+     (println (str ~info ": " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
+     ret#))
+

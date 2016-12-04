@@ -1,6 +1,8 @@
 (ns saft.core
+  (:gen-class)
   (:require [clojure.data.xml :as xml]
             [clojure.java.jdbc :as j]
+            [clojure.tools.cli :as cli]
             [saft.tax-table :as tax-table]
             [saft.common :as common]
             [saft.document :as document]
@@ -11,60 +13,53 @@
          :subname "//localhost:3306/invoicexpress"
          :user "root"})
 
-(defmacro time-info
-  [info expr]
-  `(let [start# (. System (nanoTime))
-         ret# ~expr]
-     (println (str ~info ": " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
-     ret#))
-
 (defn- fetch-all-data
   "Gets all needed data from storage"
   [{:keys [account-id begin end] :as args}]
-  (let [account (time-info "Fetch account"
-                  (first (j/query db ["select * from accounts where id = ?" account-id])))]
+  (let [account (common/time-info "[SQL] Fetch account"
+                           (first (j/query db ["select * from accounts where id = ?" account-id])))]
 
     {:account account
 
-     :clients (time-info "Fetch clients"
-                (j/query db [(str " select distinct client_versions.id,
-                             name, fiscal_id
-                             from client_versions
-                             inner join invoices on (
-                              invoices.client_id = client_versions.client_id 
-                              and client_versions.version = invoices.client_version)
-                             where invoices.account_id = ?
-                               and " (accounting-relevant-totals/saft-types-condition account) "
-                               and status in (" (accounting-relevant-totals/saft-status-str)  ")
-                               and (invoices.date between '" begin "' and '" end "')
-                               and invoices.account_reset_id is null
-                             order by client_versions.id asc")
-                             account-id]))
+     :clients (common/time-info "[SQL] Fetch clients"
+                         (j/query db [(str " select distinct client_versions.id,
+                                           name, fiscal_id
+                                           from client_versions
+                                           inner join invoices on (
+                                           invoices.client_id = client_versions.client_id 
+                                           and client_versions.version = invoices.client_version)
+                                           where invoices.account_id = ?
+                                           and " (accounting-relevant-totals/saft-types-condition account) "
+                                           and status in (" (accounting-relevant-totals/saft-status-str)  ")
+                                                                                                          and (invoices.date between '" begin "' and '" end "')
+                                                                                                                                                            and invoices.account_reset_id is null
+                                                                                                                                                            order by client_versions.id asc")
+                                      account-id]))
 
-     :products (time-info "Fetch products"
-                  (j/query db [(str "select distinct products.id,
-                                    products.description, products.name
-                                  from products
-                                    inner join invoice_items on (products.id = invoice_items.product_id)
-                                    inner join invoices on (invoices.id = invoice_items.invoice_id)
-                                  where invoices.account_reset_id is null
-                                    and invoices.account_id = ?
-                                    and " (accounting-relevant-totals/saft-types-condition account) "
-                                    and status in (" (accounting-relevant-totals/saft-status-str)  ")
-                                    and (invoices.date between '" begin "' and '" end "')
-                                  order by products.id asc")
-                               account-id]))
+     :products (common/time-info "[SQL] Fetch products"
+                          (j/query db [(str "select distinct products.id,
+                                            products.description, products.name
+                                            from products
+                                            inner join invoice_items on (products.id = invoice_items.product_id)
+                                            inner join invoices on (invoices.id = invoice_items.invoice_id)
+                                            where invoices.account_reset_id is null
+                                            and invoices.account_id = ?
+                                            and " (accounting-relevant-totals/saft-types-condition account) "
+                                            and status in (" (accounting-relevant-totals/saft-status-str)  ")
+                                                                                                           and (invoices.date between '" begin "' and '" end "')
+                                                                                                                                                             order by products.id asc")
+                                       account-id]))
 
-     :documents (time-info "Fetch documents"
-                  (j/query db [(str "select id, sequence_number,
-                                    account_id, account_version
-                               from invoices
-                               where account_id = ?
-                                 and " (accounting-relevant-totals/saft-types-condition account) "
-                                 and status in (" (accounting-relevant-totals/saft-status-str)  ")
-                                 and (invoices.date between '" begin "' and '" end "')
-                               order by invoices.id asc;")
-                             account-id]))}))
+     :documents (common/time-info "[SQL] Fetch documents"
+                           (j/query db [(str "select id, sequence_number,
+                                             account_id, account_version
+                                             from invoices
+                                             where account_id = ?
+                                             and " (accounting-relevant-totals/saft-types-condition account) "
+                                             and status in (" (accounting-relevant-totals/saft-status-str)  ")
+                                                                                                            and (invoices.date between '" begin "' and '" end "')
+                                                                                                                                                              order by invoices.id asc;")
+                                        account-id]))}))
 
 (defn client-xml [client]
   (xml/element :Customer {}
@@ -98,11 +93,11 @@
 
 (defn fetch-items [doc-ids]
   (if-let [doc-ids (seq doc-ids)]
-    (time-info (str "Fetch items for " (count doc-ids) " document(s)")
-      (j/query db [(str
-                     "select id, invoice_id, name, description, quantity, unit_price
-                     from invoice_items
-                     where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
+    (common/time-info (str "[SQL] Fetch items for " (count doc-ids) " document(s)")
+               (j/query db [(str
+                              "select id, invoice_id, name, description, quantity, unit_price
+                              from invoice_items
+                              where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
     []))
 
 (defn fetch-account-versions
@@ -111,12 +106,12 @@
                                  (remove nil?)
                                  (distinct)
                                  (seq))]
-    (time-info (str "Fetch " (count account-versions) " account versions")
-      (j/query db [(str
-                     "select id, version, iva_caixa, factura_recibo
-                     from account_versions
-                     where account_id = " (:id account) "
-                        and version in (" (clojure.string/join "," account-versions) ")")]))
+    (common/time-info (str "[SQL] Fetch " (count account-versions) " account versions")
+               (j/query db [(str
+                              "select id, version, iva_caixa, factura_recibo
+                              from account_versions
+                              where account_id = " (:id account) "
+                              and version in (" (clojure.string/join "," account-versions) ")")]))
     []))
 
 (defn prepare-items [cache account doc]
@@ -143,8 +138,7 @@
   (let [cache {}
         cache {:items (preload-docs data docs)
                :account_versions (preload-account-versions data docs)}
-        totals (time-info "Accouting relevant totals query"
-                 (accounting-relevant-totals/run db data))]
+        totals (accounting-relevant-totals/run db data)]
     (println "Totals: " totals)
     (xml/element :SalesInvoices {}
                  (xml/element :NumberOfEntries {} (:number_of_entries totals))
@@ -176,7 +170,7 @@
                (xml/element :ProductVersion {} "1.0")))
 
 (defn write-tax-table [data]
-  (let [tax-table (time-info "Fetch tax table" (tax-table/run db data))]
+  (let [tax-table (tax-table/run db data)]
     (xml/element :TaxTable {}
                  (map tax-table/tax-table-entry-xml tax-table))))
 
@@ -209,16 +203,47 @@
 
 (defn generate-saft
   [{:keys [account-id output formatted] :as args}]
-  (time-info (str "Complete SAFT [" output "]")
-    (do
-      (println "---------------------")
-      (println "SAF-T for Account-id:" account-id)
-      (let [data (merge args (fetch-all-data args))
-            account (:account data)
-            tags (time-info "Build XML structure" (write-saft data account))]
-        (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. output) "UTF-8")]
-          (time-info "Write to file" (xml/emit tags out-file)))
-        (let [raw (slurp output)
-              formatted (time-info "Format XML" (ppxml raw))]
-          (spit output formatted))))))
+  (common/time-info (str "[ALL] Complete SAFT [" output "]")
+             (do
+               (println "---------------------")
+               (println "SAF-T for Account-id:" account-id)
+               (let [data (merge args (fetch-all-data args))
+                     account (:account data)
+                     tags (common/time-info "[XML] Build XML structure" (write-saft data account))]
+                 (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. output) "UTF-8")]
+                   (common/time-info "[FILE] Write to file" (xml/emit tags out-file)))
+                 (let [raw (slurp output)
+                       formatted (common/time-info "[FILE] Format XML" (ppxml raw))]
+                   (spit output formatted))))))
 
+(def cli-options
+  [["-a" "--account-id ID" "Account ID"
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
+
+   ["-o" "--output FILE" "Output file"]
+
+   ["-f" "--formatted" "Format XML"]
+
+   ["-y" "--year YEAR" "Year"
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 2000 % 2020) "Must be a number between 2000 and 2020"]]
+
+   ["-m" "--month MONTH" "Month"
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 % 13) "Must be a number between 1 and 12"]]
+
+   ["-h" "--help"]])
+
+(defn -main [& args]
+  (let [data (cli/parse-opts args cli-options)
+        year (get-in data [:options :year] 2016)
+        month (get-in data [:options :month] 1)
+        output (get-in data [:options :output] "saft.xml")]
+    (println (:options data))
+    (generate-saft {:account-id (get-in data [:options :account-id])
+                      :year year
+                      :begin (str year "-01-01")
+                      :end (str year "-12-01")
+                      :output output
+                      :formatted (boolean (get-in data [:options :formatted]))})))
