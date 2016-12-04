@@ -17,7 +17,8 @@
   "Gets all needed data from storage"
   [{:keys [account-id begin end] :as args}]
   (let [account (common/time-info "[SQL] Fetch account"
-                           (first (j/query db ["select * from accounts where id = ?" account-id])))]
+                           (first (j/query db ["select * from accounts where id = ?" account-id])))
+        args (assoc args :account account)]
 
     {:account account
 
@@ -50,16 +51,7 @@
                                                                                                                                                              order by products.id asc")
                                        account-id]))
 
-     :documents (common/time-info "[SQL] Fetch documents"
-                           (j/query db [(str "select id, sequence_number,
-                                             account_id, account_version
-                                             from invoices
-                                             where account_id = ?
-                                             and " (common/saft-types-condition account) "
-                                             and status in (" (common/saft-status-str)  ")
-                                                                                                            and (invoices.date between '" begin "' and '" end "')
-                                                                                                                                                              order by invoices.id asc;")
-                                        account-id]))}))
+     :documents (document/documents-query args)}))
 
 (defn client-xml [client]
   (xml/element :Customer {}
@@ -204,17 +196,18 @@
 (defn generate-saft
   [{:keys [account-id output formatted] :as args}]
   (common/time-info (str "[ALL] Complete SAFT [" output "]")
-             (do
-               (println "---------------------")
-               (println "SAF-T for Account-id:" account-id)
-               (let [data (merge args (fetch-all-data args))
-                     account (:account data)
-                     tags (common/time-info "[XML] Build XML structure" (write-saft data account))]
-                 (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. output) "UTF-8")]
-                   (common/time-info "[FILE] Write to file" (xml/emit tags out-file)))
-                 (let [raw (slurp output)
-                       formatted (common/time-info "[FILE] Format XML" (ppxml raw))]
-                   (spit output formatted))))))
+     (do
+       (println "---------------------")
+       (println "SAF-T for Account-id:" account-id)
+       (let [args (assoc args :db db)
+             data (merge args (fetch-all-data args))
+             account (:account data)
+             tags (common/time-info "[XML] Build XML structure" (write-saft data account))]
+         (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. output) "UTF-8")]
+           (common/time-info "[FILE] Write to file" (xml/emit tags out-file)))
+         (let [raw (slurp output)
+               formatted (common/time-info "[FILE] Format XML" (ppxml raw))]
+           (spit output formatted))))))
 
 (def cli-options
   [["-a" "--account-id ID" "Account ID"

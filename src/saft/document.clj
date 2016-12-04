@@ -1,24 +1,22 @@
 (ns saft.document
   (:require
     [clojure.data.xml :as xml]
-    [saft.common :as common]))
+    [clojure.java.jdbc :as j]
+    [saft.common :as common]
+    [saft.item :as item]))
 
-(defn item-xml [idx item]
-  (xml/element :Line {}
-               (xml/element :LineNumber {} (inc idx))
-               (xml/element :ProductCode {} (common/get-str item :name))
-               (xml/element :ProductDescription {} (common/get-str item :description))
-               (xml/element :Quantity {} (:quantity item))
-               (xml/element :UnitOfMeasure {} (:unit item))
-               (xml/element :UnitPrice {} (:unit_price item))
-               (xml/element :TaxPointDate {} (:tax_point_date item))
-               (xml/element :Description {} (common/get-str item :description))
-               (xml/element :CreditAmount {} (:credit item))
-               (xml/element :Tax {}
-                            (xml/element :TaxType {} "IVA")
-                            (xml/element :TaxCountryRegion {} "PT")
-                            (xml/element :TaxCode {} "NOR")
-                            (xml/element :TaxPercentage {} "23.0"))))
+(defn documents-query
+  [{:keys [db account-id account begin end]}]
+  (common/time-info "[SQL] Fetch documents"
+     (j/query db [(str "select id, sequence_number,
+                          account_id, account_version
+                        from invoices
+                        where account_id = ?
+                          and " (common/saft-types-condition account) "
+                          and status in (" (common/saft-status-str)  ")
+                          and (invoices.date between '" begin "' and '" end "')
+                        order by invoices.id asc;")
+                  account-id])))
 
 (defn document-xml
   [cache account doc]
@@ -41,7 +39,7 @@
                  (xml/element :SourceID {} (:id account))
                  (xml/element :SystemEntryDate {} (common/get-date doc :created_at))
                  (xml/element :CustomerID {} 0)
-                 (map-indexed item-xml (:items doc))
+                 (map-indexed item/item-xml (:items doc))
                  (xml/element :DocumentTotals {}
                               (xml/element :TaxPayable {} (:tax doc))
                               (xml/element :NetTotal {} (:total doc))
