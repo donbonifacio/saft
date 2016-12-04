@@ -2,8 +2,19 @@
   (:require
     [clojure.data.xml :as xml]))
 
-(defn get-str [m k]
-  (apply str (filter #(<= 32 (int %) 126) (get m k ""))))
+(def unknown "Desconhecido")
+
+(defn get-str
+  "Gets and prepares a string value from a map"
+  ([m k]
+    (get-str m k 10000))
+  ([m k size]
+   (get-str m k size unknown))
+  ([m k size default-value]
+   (let [value (get m k)]
+     (if (or (nil? value) (empty? value))
+       default-value
+       (apply str (take size (filter #(<= 32 (int %)) value)))))))
 
 (defn get-date [m k]
   (str (get m k)))
@@ -20,6 +31,12 @@
 
 (defn credit-documents [account]
   ["CreditNote"])
+
+(defn guide-documents [account]
+  ["Shipping" "Devolution" "Transport"])
+
+(defn payment-documents [account]
+  ["Receipt"])
 
 (defn statuses-relevant-for-communication []
   ["sent" "settled" "second_copy" "canceled"])
@@ -48,3 +65,9 @@
      (concat (debit-documents account)
              (credit-documents account))))
 
+(defn all-types-condition [account]
+  (types-condition
+     (concat (debit-documents account)
+             (credit-documents account)
+             (payment-documents account)
+             (guide-documents account))))

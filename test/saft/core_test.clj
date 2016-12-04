@@ -3,7 +3,7 @@
             [clojure.data.xml :as xml]
             [saft.core :as core]))
 
-#_(deftest a-test
+(deftest a-test
   (core/generate-saft {:account-id 5554 #_6599
                        :formatted true
                        :begin "2012-01-01"
