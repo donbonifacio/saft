@@ -29,8 +29,8 @@
                                            invoices.client_id = client_versions.client_id 
                                            and client_versions.version = invoices.client_version)
                                            where invoices.account_id = ?
-                                           and " (accounting-relevant-totals/saft-types-condition account) "
-                                           and status in (" (accounting-relevant-totals/saft-status-str)  ")
+                                           and " (common/saft-types-condition account) "
+                                           and status in (" (common/saft-status-str)  ")
                                                                                                           and (invoices.date between '" begin "' and '" end "')
                                                                                                                                                             and invoices.account_reset_id is null
                                                                                                                                                             order by client_versions.id asc")
@@ -44,8 +44,8 @@
                                             inner join invoices on (invoices.id = invoice_items.invoice_id)
                                             where invoices.account_reset_id is null
                                             and invoices.account_id = ?
-                                            and " (accounting-relevant-totals/saft-types-condition account) "
-                                            and status in (" (accounting-relevant-totals/saft-status-str)  ")
+                                            and " (common/saft-types-condition account) "
+                                            and status in (" (common/saft-status-str)  ")
                                                                                                            and (invoices.date between '" begin "' and '" end "')
                                                                                                                                                              order by products.id asc")
                                        account-id]))
@@ -55,8 +55,8 @@
                                              account_id, account_version
                                              from invoices
                                              where account_id = ?
-                                             and " (accounting-relevant-totals/saft-types-condition account) "
-                                             and status in (" (accounting-relevant-totals/saft-status-str)  ")
+                                             and " (common/saft-types-condition account) "
+                                             and status in (" (common/saft-status-str)  ")
                                                                                                             and (invoices.date between '" begin "' and '" end "')
                                                                                                                                                               order by invoices.id asc;")
                                         account-id]))}))

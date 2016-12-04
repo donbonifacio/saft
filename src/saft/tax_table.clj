@@ -2,8 +2,7 @@
   (:require
     [clojure.java.jdbc :as j]
     [clojure.data.xml :as xml]
-    [saft.common :as common]
-    [saft.accounting-relevant-totals :as accounting-relevant-totals]))
+    [saft.common :as common]))
 
 (defn run
   [db {:keys [begin end account]}]
@@ -14,8 +13,8 @@
                        "inner join invoices on (invoices.id = invoice_items.invoice_id) "
                       "where invoices.account_id = " (:id account) " "
                        "and invoices.account_reset_id is null "
-                      "and (invoices.status in (" (accounting-relevant-totals/saft-status-str) ")) "
-                      "and " (accounting-relevant-totals/saft-types-condition account) " "
+                      "and (invoices.status in (" (common/saft-status-str) ")) "
+                      "and " (common/saft-types-condition account) " "
                       "and (invoices.date between '" begin "' and '" end "');")]
       (j/query db [sql]))))
 
