@@ -37,6 +37,7 @@
     (group-by :invoice_id items)))
 
 (defn preload-account-versions [data docs]
+  (prn (map :account_version docs))
   (let [account-versions (map :account_version docs)
         versions (account/account-versions-query data account-versions)]
     (group-by :version versions)))

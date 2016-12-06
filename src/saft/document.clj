@@ -9,9 +9,9 @@
 (defn documents-query
   [{:keys [db account-id account begin end]}]
   (common/time-info "[SQL] Fetch documents"
-     (j/query db [(str "select id, type, sequence_number
+     (j/query db [(str "select id, type, sequence_number,
                           document_number, document_serie,
-                          account_id, account_version
+                          account_id, account_version, saft_hash
                         from invoices
                         where account_id = ?
                           and " (common/saft-types-condition account) "
@@ -39,7 +39,9 @@
 (defn convert-factura-recibo
   "Converts Invoice type in invoice Receit based on account"
   [account type-name]
-  (if (and (= "Invoice" type-name) (:factura_recibo account))
+  (if (and (or (= "Invoice" type-name)
+               (nil? type-name))
+           (:factura_recibo account))
     "InvoiceReceipt"
     type-name))
 
@@ -50,6 +52,11 @@
         code (get type-hash type-name)]
     (assert code (str "No code for " type-name))
     code))
+
+(defn invoice-status [doc]
+  (if (= "canceled" (:status doc))
+    "A"
+    "N"))
 
 (defn number
   "Gets the proper document number. Tries to get the account version
@@ -67,7 +74,7 @@
     (xml/element :Invoice {}
                    (xml/element :InvoiceNo {} (number cache account doc))
                    (xml/element :DocumentStatus {}
-                                (xml/element :InvoiceStatus {} "A")
+                                (xml/element :InvoiceStatus {} (invoice-status doc))
                                 (xml/element :InvoiceStatusDate {} "2016-07-01T15:06:33")
                                 (xml/element :SourceID {} (:id account))
                                 (xml/element :SourceBilling {} "P"))
