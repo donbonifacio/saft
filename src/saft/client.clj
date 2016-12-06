@@ -2,7 +2,8 @@
   (:require
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
-    [saft.common :as common]))
+    [saft.common :as common]
+    [saft.countries :as countries]))
 
 (defn clients-query
   [{:keys [db account-id account begin end]}]
@@ -53,7 +54,7 @@
                               (xml/element :AddressDetail {} (common/get-str client :address 59))
                               (xml/element :City {} (common/get-str client :city 99))
                               (xml/element :PostalCode {} (postal-code client))
-                              (xml/element :Country {} "PT"))
+                              (xml/element :Country {} (countries/country-code (:country client))))
                  (xml/element :Telephone {} (common/get-str client :phone 19))
                  (xml/element :Fax {} (common/get-str client :fax 19))
                  (xml/element :Email {} (common/get-str client :email 59))
