@@ -7,7 +7,8 @@
                  [org.clojure/data.xml "0.0.8"]
                  [org.clojure/java.jdbc "0.7.0-alpha1"]
                  [org.clojure/tools.cli "0.3.5"]
-                 [mysql/mysql-connector-java "6.0.5"]]
+                 [mysql/mysql-connector-java "5.1.40"]
+                 [clj-yaml "0.4.0"]]
 
   :main saft.core
   :uberjar-name "saft.jar"

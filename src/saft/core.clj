@@ -2,7 +2,9 @@
   (:gen-class)
   (:require [clojure.data.xml :as xml]
             [clojure.java.jdbc :as j]
+            [clojure.java.io :as io]
             [clojure.tools.cli :as cli]
+            [clj-yaml.core :as yaml]
             [saft.tax-table :as tax-table]
             [saft.common :as common]
             [saft.document :as document]
@@ -13,10 +15,10 @@
             [saft.product :as product]
             [saft.accounting-relevant-totals :as accounting-relevant-totals]))
 
-(def db {:classname "com.mysql.jdbc.Driver" 
-         :subprotocol "mysql"
-         :subname "//localhost:3306/invoicexpress"
-         :user "root"})
+(def local-db {:host "localhost"
+               :dbname "invoicexpress"
+               :dbtype "mysql"
+               :user "root"})
 
 (defn- fetch-all-data
   "Gets all needed data from storage"
@@ -43,7 +45,7 @@
   (let [cache {}
         cache {:items (preload-docs data docs)
                :account-versions (preload-account-versions data docs)}
-        totals (accounting-relevant-totals/run db data)]
+        totals (accounting-relevant-totals/run (:db data) data)]
     (println "Totals: " totals)
     (xml/element :SalesInvoices {}
                  (xml/element :NumberOfEntries {} (:number_of_entries totals))
@@ -52,7 +54,7 @@
                  (map #(document/document-xml cache (:account data) %) docs))))
 
 (defn write-tax-table [data]
-  (let [tax-table (tax-table/run db data)]
+  (let [tax-table (tax-table/run (:db data) data)]
     (xml/element :TaxTable {}
                  (map tax-table/tax-table-entry-xml tax-table))))
 
@@ -83,21 +85,32 @@
     (.transform transformer in out)
     (-> out .getWriter .toString)))
 
+(defn used-mem []
+  (int (/ (- (-> (java.lang.Runtime/getRuntime) (.totalMemory)) (-> (java.lang.Runtime/getRuntime) (.freeMemory))) (* 1024 1024))))
+
+(defn file-size [output]
+  (float  (/ (.length (io/file output)) (* 1024 1024))))
+
 (defn generate-saft
-  [{:keys [account-id output formatted] :as args}]
+  [{:keys [account-id output formatted db] :as args}]
   (common/time-info (str "[ALL] Complete SAFT [" output "]")
      (do
        (println "---------------------")
        (println "SAF-T for Account-id:" account-id)
-       (let [args (assoc args :db db)
+       (let [args (if (nil? db)
+                    (assoc args :db local-db)
+                    args)
              data (merge args (fetch-all-data args))
              account (:account data)
              tags (common/time-info "[XML] Build XML structure" (write-saft data account))]
          (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. output) "UTF-8")]
            (common/time-info "[FILE] Write to file" (xml/emit tags out-file)))
-         (let [raw (slurp output)
-               formatted (common/time-info "[FILE] Format XML" (ppxml raw))]
-           (spit output formatted))))))
+         (when formatted
+           (let [raw (slurp output)
+                 formatted (common/time-info "[FILE] Format XML" (ppxml raw))]
+             (spit output formatted)))
+         (println "[MEM] Used RAM:" (used-mem) "Mb")
+         (println "[FILE] File size:" (file-size output) "Mb")))))
 
 (def cli-options
   [["-a" "--account-id ID" "Account ID"
@@ -107,6 +120,10 @@
    ["-o" "--output FILE" "Output file"]
 
    ["-f" "--formatted" "Format XML"]
+
+   ["-d" "--database YAML" "Database yaml file"]
+
+   ["-e" "--env YAML" "Database yaml file env to use"]
 
    ["-y" "--year YEAR" "Year"
     :parse-fn #(Integer/parseInt %)
@@ -118,15 +135,38 @@
 
    ["-h" "--help"]])
 
+(defn load-db-conn
+  [options]
+  (let [yaml-file (:database options)]
+    (if (nil? yaml-file)
+      local-db
+      (let [data (yaml/parse-string (slurp yaml-file))
+            env (keyword (get options :env "development"))
+            config (get data env)]
+        (prn "options" options)
+        (prn "data" data)
+        (prn "env" env)
+        (prn "config" config)
+        (assoc {} :user (:username config)
+                  :password (when (:password config) (:password config))
+                  :host (get config :host "localhost-waza")
+                  :dbname (:database config)
+                  :dbtype "mysql"
+                  ;:subname (str "jdbc:mysql://" (get config :host "localhost") "/" (:database config) "?user="(:username config)"&password="(:password config)"&autoReconnect=true&useUnicode=true&characterEncoding=UTF-8")
+                  )
+        ))))
+
 (defn -main [& args]
   (let [data (cli/parse-opts args cli-options)
         year (get-in data [:options :year] 2016)
         month (get-in data [:options :month] 1)
-        output (get-in data [:options :output] "saft.xml")]
-    (println (:options data))
+        output (get-in data [:options :output] "saft.xml")
+        db (load-db-conn (:options data))]
+    (println "Using DB data: " db)
     (generate-saft {:account-id (get-in data [:options :account-id])
                       :year year
                       :begin (str year "-01-01")
                       :end (str year "-12-01")
                       :output output
+                      :db db
                       :formatted (boolean (get-in data [:options :formatted]))})))
