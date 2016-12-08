@@ -103,6 +103,9 @@
        (let [args (if (nil? db)
                     (assoc args :db local-db)
                     args)
+             args (update-in args [:db] assoc "useTimezone" "true"
+                                              "useLegacyDatetimeCode" "false"
+                                              "serverTimezone" "UTC")
              args (assoc args :start-date (:begin args)
                               :end-date (:end args)
                               :begin (str (:begin args) " 00:00:00")
@@ -111,7 +114,7 @@
              account (:account data)
              tags (common/time-info "[XML] Build XML structure" (write-saft data account))]
          (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. output) "UTF-8")]
-           (common/time-info "[FILE] Write to file" (xml/emit tags out-file)))
+           (common/time-info "[FILE] Write to file" (xml/emit tags out-file :encoding "UTF-8")))
          (when formatted
            (let [raw (slurp output)
                  formatted (common/time-info "[FILE] Format XML" (ppxml raw))]
