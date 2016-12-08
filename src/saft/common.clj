@@ -1,6 +1,8 @@
 (ns saft.common
   (:require
-    [clojure.data.xml :as xml]))
+    [clojure.data.xml :as xml]
+    [clj-time.format :as f]
+    [clj-time.core :as t]))
 
 (def unknown "Desconhecido")
 
@@ -71,3 +73,11 @@
              (credit-documents account)
              (payment-documents account)
              (guide-documents account))))
+
+(def date-formatter (f/formatter "yyyy-MM-dd"))
+
+(defn generated-date []
+  (f/unparse date-formatter (t/now)))
+
+(defn fiscal-year [date]
+  (t/year (f/parse date-formatter date)))

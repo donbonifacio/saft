@@ -37,7 +37,6 @@
     (group-by :invoice_id items)))
 
 (defn preload-account-versions [data docs]
-  (prn (map :account_version docs))
   (let [account-versions (map :account_version docs)
         versions (account/account-versions-query data account-versions)]
     (group-by :version versions)))
@@ -47,7 +46,7 @@
         cache {:items (preload-docs data docs)
                :account-versions (preload-account-versions data docs)}
         totals (accounting-relevant-totals/run (:db data) data)]
-    (println "Totals: " totals)
+    (println "[INFO] Totals: " totals)
     (xml/element :SalesInvoices {}
                  (xml/element :NumberOfEntries {} (:number_of_entries totals))
                  (xml/element :TotalDebit {} (:total_debit totals))
@@ -62,7 +61,10 @@
 (defn- write-saft [data account]
   (xml/element :AuditFile {:xmlns "urn:OECD:StandardAuditFile-Tax:PT_1.03_01"
                            "xmlns:xsi" "http://www.w3.org/2001/XMLSchema-instance"}
-               (header/header-xml {} account)
+               (header/header-xml {:year (common/fiscal-year (:start-date data))
+                                   :start-date (:start-date data)
+                                   :end-date (:end-date data)
+                                   :created (common/generated-date)} account)
                (xml/element :MasterFiles {}
                             (client/clients-xml (:clients data))
                             (product/products-xml (:products data))
@@ -101,6 +103,10 @@
        (let [args (if (nil? db)
                     (assoc args :db local-db)
                     args)
+             args (assoc args :start-date (:begin args)
+                              :end-date (:end args)
+                              :begin (str (:begin args) " 00:00:00")
+                              :end (str (:end args) " 23:59:59 "))
              data (merge args (fetch-all-data args))
              account (:account data)
              tags (common/time-info "[XML] Build XML structure" (write-saft data account))]
