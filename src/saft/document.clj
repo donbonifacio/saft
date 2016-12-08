@@ -84,6 +84,11 @@
 (defn gross-total [doc]
   (+ (:total_before_taxes doc) (:total_taxes doc)))
 
+(defn retention [doc]
+  (*
+   (/ (:retention doc) 100)
+   (:total_before_taxes doc)))
+
 (defn document-xml
   [cache account doc]
   (let [doc (prepare-items cache account doc)]
@@ -110,4 +115,6 @@
                    (xml/element :DocumentTotals {}
                                 (xml/element :TaxPayable {} (total-taxes doc))
                                 (xml/element :NetTotal {} (:total_before_taxes doc))
-                                (xml/element :GrossTotal {} (gross-total doc))))))
+                                (xml/element :GrossTotal {} (gross-total doc)))
+                   (when (and (some? (:retention doc)) (pos? (:retention doc)))
+                     (xml/element :WithholdingTax {} (retention doc))))))
