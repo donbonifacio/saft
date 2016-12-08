@@ -17,9 +17,11 @@
            :document_serie "2013"
            :document_number "69"
            :status "sent"
-           :tax "3.68"
-           :total "16.00"
-           :total_with_taxes "19.68"
+           :tax 3.68
+           :total 19.68M
+           :total_taxes 3.68M
+           :total_with_taxes 19.68M
+           :total_before_taxes 16.00M
            :items [{:name "Item 8"
                     :description "D5c194mpfz8h"
                     :quantity "2.0"

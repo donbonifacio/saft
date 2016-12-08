@@ -11,6 +11,8 @@
   (common/time-info "[SQL] Fetch documents"
      (j/query db [(str "select id, type, sequence_number,
                           document_number, document_serie,
+                          retention,
+                          total, total_taxes, total_before_taxes,
                           account_id, account_version, saft_hash,
                           created_at, updated_at, final_date, date
                         from invoices
@@ -73,6 +75,15 @@
   (common/saft-date (or (:final_date doc)
                         (:updated_at doc))))
 
+(defn total-taxes [doc]
+  (let [retention (:retention doc)]
+    (if (and (some? retention) (pos? retention))
+      (:total_taxes doc)
+      (- (:total doc) (:total_before_taxes doc)))))
+
+(defn gross-total [doc]
+  (+ (:total_before_taxes doc) (:total_taxes doc)))
+
 (defn document-xml
   [cache account doc]
   (let [doc (prepare-items cache account doc)]
@@ -97,6 +108,6 @@
                    (xml/element :CustomerID {} 0)
                    (map-indexed item/item-xml (:items doc))
                    (xml/element :DocumentTotals {}
-                                (xml/element :TaxPayable {} (:tax doc))
-                                (xml/element :NetTotal {} (:total doc))
-                                (xml/element :GrossTotal {} (:total_with_taxes doc))))))
+                                (xml/element :TaxPayable {} (total-taxes doc))
+                                (xml/element :NetTotal {} (:total_before_taxes doc))
+                                (xml/element :GrossTotal {} (gross-total doc))))))
