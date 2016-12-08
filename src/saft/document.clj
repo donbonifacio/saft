@@ -15,7 +15,8 @@
                           total, total_taxes, total_before_taxes,
                           account_id, account_version, saft_hash,
                           created_at, updated_at, final_date, date,
-                          client_id, client_version
+                          client_id, client_version,
+                          tax_exemption_message
                         from invoices
                         where account_id = ?
                           and " (common/saft-types-condition account) "

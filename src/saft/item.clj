@@ -10,7 +10,7 @@
     (common/time-info (str "[SQL] Fetch items for " (count doc-ids) " document(s)")
                (j/query db [(str
                               "select id, invoice_id, name, description,
-                              quantity, unit, unit_price, subtotal
+                              quantity, unit, unit_price, subtotal, tax_value
                               from invoice_items
                               where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
     []))
@@ -19,6 +19,14 @@
   (if (or (nil? (:description product)) (empty? (:description product)))
     (common/get-str product :name 199)
     (common/get-str product :description 199)))
+
+(defn exempt? [item]
+  (and (some? (:tax_value item)) (zero? (:tax_value item))))
+
+(defn tax-exemption-reason [doc]
+  (if (:tax_exemption_message doc)
+    (:tax_exemption_message doc)
+    "Não sujeito; não tributado (ou similar)."))
 
 (defn item-xml [idx doc item]
   (xml/element :Line {}
@@ -37,5 +45,7 @@
                             (xml/element :TaxType {} "IVA")
                             (xml/element :TaxCountryRegion {} "PT")
                             (xml/element :TaxCode {} "NOR")
-                            (xml/element :TaxPercentage {} "23.0"))))
+                            (xml/element :TaxPercentage {} "23.0"))
+               (when (exempt? item)
+                 (xml/element :TaxExemptionReason {} (tax-exemption-reason doc)))))
 
