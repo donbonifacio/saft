@@ -44,6 +44,9 @@
 (defn- write-documents [data docs]
   (let [cache {}
         cache {:items (preload-docs data docs)
+               :clients (group-by (fn [client]
+                                    [(:client_id client) (:version client)])
+                                  (:clients data))
                :account-versions (preload-account-versions data docs)}
         totals (accounting-relevant-totals/run (:db data) data)]
     (println "[INFO] Totals: " totals)

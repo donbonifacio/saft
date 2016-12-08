@@ -14,7 +14,8 @@
                           retention,
                           total, total_taxes, total_before_taxes,
                           account_id, account_version, saft_hash,
-                          created_at, updated_at, final_date, date
+                          created_at, updated_at, final_date, date,
+                          client_id, client_version
                         from invoices
                         where account_id = ?
                           and " (common/saft-types-condition account) "
@@ -89,6 +90,13 @@
    (/ (:retention doc) 100)
    (:total_before_taxes doc)))
 
+(defn customer-id [cache doc]
+  (if-let [client (first (get-in cache [:clients [(:client_id doc) (:client_version doc)]]))]
+    (if (or (nil? (:fiscal_id client)) (empty? (:fiscal_id client)))
+      0
+      (:id client))
+    0))
+
 (defn document-xml
   [cache account doc]
   (let [doc (prepare-items cache account doc)]
@@ -110,7 +118,7 @@
                                 (xml/element :ThirdPartiesBillingIndicator {} 0))
                    (xml/element :SourceID {} (:id account))
                    (xml/element :SystemEntryDate {} (final-date doc))
-                   (xml/element :CustomerID {} 0)
+                   (xml/element :CustomerID {} (customer-id cache doc))
                    (map-indexed #(item/item-xml %1 doc %2) (:items doc))
                    (xml/element :DocumentTotals {}
                                 (xml/element :TaxPayable {} (total-taxes doc))

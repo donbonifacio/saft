@@ -10,7 +10,8 @@
   (common/time-info "[SQL] Fetch clients"
      (j/query db [(str "select distinct client_versions.id,
                           name, fiscal_id, email, website,
-                          address, postal_code, country, phone, fax
+                          address, postal_code, country, phone, fax,
+                          version, client_versions.client_id
                         from client_versions
                         inner join invoices on (
                           invoices.client_id = client_versions.client_id
