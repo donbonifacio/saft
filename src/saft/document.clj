@@ -12,7 +12,7 @@
      (j/query db [(str "select id, type, sequence_number,
                           document_number, document_serie,
                           account_id, account_version, saft_hash,
-                          updated_at, final_date, date
+                          created_at, updated_at, final_date, date
                         from invoices
                         where account_id = ?
                           and " (common/saft-types-condition account) "
@@ -87,13 +87,13 @@
                    (xml/element :HashControl {} 1)
                    (xml/element :Period {} (common/month (:date doc)))
                    (xml/element :InvoiceDate {} (common/get-date doc :date))
-                   (xml/element :InvoiceType {} "FT")
+                   (xml/element :InvoiceType {} (type-code (account/for-document cache account doc) (:type doc)))
                    (xml/element :SpecialRegimes {}
                                 (xml/element :SelfBillingIndicator {} 0)
                                 (xml/element :CashVATSchemeIndicator {} 0)
                                 (xml/element :ThirdPartiesBillingIndicator {} 0))
                    (xml/element :SourceID {} (:id account))
-                   (xml/element :SystemEntryDate {} (common/get-date-time doc :created_at))
+                   (xml/element :SystemEntryDate {} (final-date doc))
                    (xml/element :CustomerID {} 0)
                    (map-indexed item/item-xml (:items doc))
                    (xml/element :DocumentTotals {}
