@@ -27,7 +27,7 @@
                     :quantity "2.0"
                     :unit_price "8.0"
                     :unit "unit"
-                    :credit "16.0"
+                    :subtotal "16.0"
                     :tax_point_date "2016-01-01"}]}
 
         expected

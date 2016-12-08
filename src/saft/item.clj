@@ -9,22 +9,30 @@
   (if-let [doc-ids (seq doc-ids)]
     (common/time-info (str "[SQL] Fetch items for " (count doc-ids) " document(s)")
                (j/query db [(str
-                              "select id, invoice_id, name, description, quantity, unit_price
+                              "select id, invoice_id, name, description,
+                              quantity, unit, unit_price, subtotal
                               from invoice_items
                               where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
     []))
 
-(defn item-xml [idx item]
+(defn description [product]
+  (if (or (nil? (:description product)) (empty? (:description product)))
+    (common/get-str product :name 199)
+    (common/get-str product :description 199)))
+
+(defn item-xml [idx doc item]
   (xml/element :Line {}
                (xml/element :LineNumber {} (inc idx))
                (xml/element :ProductCode {} (common/get-str item :name))
-               (xml/element :ProductDescription {} (common/get-str item :description))
+               (xml/element :ProductDescription {} (description item))
                (xml/element :Quantity {} (:quantity item))
-               (xml/element :UnitOfMeasure {} (:unit item))
+               (xml/element :UnitOfMeasure {} (or (:unit item) "unit"))
                (xml/element :UnitPrice {} (:unit_price item))
-               (xml/element :TaxPointDate {} (:tax_point_date item))
-               (xml/element :Description {} (common/get-str item :description))
-               (xml/element :CreditAmount {} (:credit item))
+               (xml/element :TaxPointDate {} (common/get-date doc :date))
+               (xml/element :Description {} (description item))
+               (if (= "CreditNote" (:type doc))
+                 (xml/element :DebitAmount {} (:subtotal item))
+                 (xml/element :CreditAmount {} (:subtotal item)))
                (xml/element :Tax {}
                             (xml/element :TaxType {} "IVA")
                             (xml/element :TaxCountryRegion {} "PT")

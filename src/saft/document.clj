@@ -111,7 +111,7 @@
                    (xml/element :SourceID {} (:id account))
                    (xml/element :SystemEntryDate {} (final-date doc))
                    (xml/element :CustomerID {} 0)
-                   (map-indexed item/item-xml (:items doc))
+                   (map-indexed #(item/item-xml %1 doc %2) (:items doc))
                    (xml/element :DocumentTotals {}
                                 (xml/element :TaxPayable {} (total-taxes doc))
                                 (xml/element :NetTotal {} (:total_before_taxes doc))
