@@ -19,9 +19,6 @@
        default-value
        (apply str (take size (filter #(<= 32 (int %)) value)))))))
 
-(defn get-date [m k]
-  (str (get m k)))
-
 (defmacro time-info
   [info expr]
   `(let [start# (. System (nanoTime))
@@ -88,3 +85,21 @@
   (if (string? date)
     date
     (f/unparse saft-formatter (c/from-sql-date date))))
+
+(defn month [date]
+  (cond
+    (string? date) (t/month (f/parse date))
+    :else (t/month (c/from-sql-date date))))
+
+(defn get-date [m k]
+  (let [date (get m k)]
+    (cond
+      (string? date) (f/unparse date-formatter (f/parse date))
+      :else (f/unparse date-formatter (c/from-sql-date date)))))
+
+(defn get-date-time [m k]
+  (let [date (get m k)]
+    (cond
+      (string? date) (f/unparse saft-formatter (f/parse date))
+      :else (f/unparse saft-formatter (c/from-sql-date date)))))
+
