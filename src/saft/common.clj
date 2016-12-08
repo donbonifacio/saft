@@ -2,6 +2,7 @@
   (:require
     [clojure.data.xml :as xml]
     [clj-time.format :as f]
+    [clj-time.coerce :as c]
     [clj-time.core :as t]))
 
 (def unknown "Desconhecido")
@@ -75,9 +76,15 @@
              (guide-documents account))))
 
 (def date-formatter (f/formatter "yyyy-MM-dd"))
+(def saft-formatter (f/formatters :date-hour-minute-second))
 
 (defn generated-date []
   (f/unparse date-formatter (t/now)))
 
 (defn fiscal-year [date]
   (t/year (f/parse date-formatter date)))
+
+(defn saft-date [date]
+  (if (string? date)
+    date
+    (f/unparse saft-formatter (c/from-sql-date date))))

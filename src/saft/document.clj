@@ -11,7 +11,8 @@
   (common/time-info "[SQL] Fetch documents"
      (j/query db [(str "select id, type, sequence_number,
                           document_number, document_serie,
-                          account_id, account_version, saft_hash
+                          account_id, account_version, saft_hash,
+                          updated_at, final_date
                         from invoices
                         where account_id = ?
                           and " (common/saft-types-condition account) "
@@ -68,6 +69,10 @@
        "/"
        (:document_number doc)))
 
+(defn final-date [doc]
+  (common/saft-date (or (:final_date doc)
+                        (:updated_at doc))))
+
 (defn document-xml
   [cache account doc]
   (let [doc (prepare-items cache account doc)]
@@ -75,7 +80,7 @@
                    (xml/element :InvoiceNo {} (number cache account doc))
                    (xml/element :DocumentStatus {}
                                 (xml/element :InvoiceStatus {} (invoice-status doc))
-                                (xml/element :InvoiceStatusDate {} "2016-07-01T15:06:33")
+                                (xml/element :InvoiceStatusDate {} (final-date doc))
                                 (xml/element :SourceID {} (:id account))
                                 (xml/element :SourceBilling {} "P"))
                    (xml/element :Hash {} (:saft_hash doc))

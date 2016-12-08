@@ -11,6 +11,7 @@
           {:id 206417
            :date "2016-01-01"
            :created_at "2016-07-01T15:06:33"
+           :final_date "2016-07-01T15:06:33"
            :saft_hash "N9rCtcNw7IPkCZQa7rOS28nxcb1AerYOJI8cJZaGuxPwgzWHCzIAsF8B2C5VK5tso6Bqe+pu0ixTgYgehxAwLeK9s9tT4IJMDBlodAwi9lzCdvq2GKU3NwT7aId+3ODyKBYoERAu+wxWAN7Qq+W9cOC7K4FeTbYLgWN2PqP9NIs="
            :sequence_number "FT 2013/69"
            :document_serie "2013"
