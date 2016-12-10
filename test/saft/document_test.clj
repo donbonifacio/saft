@@ -28,6 +28,7 @@
                     :unit_price "8.0"
                     :unit "unit"
                     :subtotal "16.0"
+                    :tax_value 23.0
                     :tax_point_date "2016-01-01"}]}
 
         expected

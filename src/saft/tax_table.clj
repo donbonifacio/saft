@@ -24,21 +24,20 @@
       (clojure.string/replace region #" " "")
       "PT")))
 
-(defn code [tax]
-  (let [value (:value tax)]
-    (cond
-      (nil? value) "ISE"
-      (== 0 value) "ISE"
-      (== 23.0 value) "NOR"
-      (== 13.0 value) "INT"
-      (== 6.0 value) "RED"
-      :else "OUT")))
+(defn code [value]
+  (cond
+    (nil? value) "ISE"
+    (== 0 value) "ISE"
+    (== 23.0 value) "NOR"
+    (== 13.0 value) "INT"
+    (== 6.0 value) "RED"
+    :else "OUT"))
 
 (defn tax-table-entry-xml
   [tax]
   (xml/element :TaxTableEntry {}
                (xml/element :TaxType {} "IVA")
                (xml/element :TaxCountryRegion {} (region tax))
-               (xml/element :TaxCode {} (code tax))
+               (xml/element :TaxCode {} (code (:value tax)))
                (xml/element :Description {} (:name tax))
                (xml/element :TaxPercentage {} (:value tax))))

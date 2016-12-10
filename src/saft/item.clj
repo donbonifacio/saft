@@ -3,6 +3,7 @@
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
     [saft.common :as common]
+    [saft.tax-table :as tax-table]
     [saft.countries :as countries]))
 
 (defn items-query
@@ -64,8 +65,8 @@
                (xml/element :Tax {}
                             (xml/element :TaxType {} "IVA")
                             (xml/element :TaxCountryRegion {} (tax-region client item))
-                            (xml/element :TaxCode {} "NOR")
-                            (xml/element :TaxPercentage {} "23.0"))
+                            (xml/element :TaxCode {} (tax-table/code (:tax_value item)))
+                            (xml/element :TaxPercentage {} (:tax_value item)))
                (when (exempt? item)
                  (xml/element :TaxExemptionReason {} (tax-exemption-reason doc)))
                (when (discount-applied? item)
