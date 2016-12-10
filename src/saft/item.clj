@@ -2,7 +2,8 @@
   (:require
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
-    [saft.common :as common]))
+    [saft.common :as common]
+    [saft.countries :as countries]))
 
 (defn items-query
   [{:keys [db]} doc-ids]
@@ -11,7 +12,7 @@
                (j/query db [(str
                               "select id, invoice_id, name, description,
                               quantity, unit, unit_price, subtotal, tax_value,
-                              discount_amount
+                              discount_amount, tax_region
                               from invoice_items
                               where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
     []))
@@ -36,7 +37,18 @@
 (defn settlement-amount [item]
   (:discount_amount item))
 
-(defn item-xml [idx doc item]
+(defn tax-region-from-item [item]
+  (if (nil? (:tax_region item))
+    "PT"
+    (clojure.string/replace (:tax_region item) #"\s" "")))
+
+(defn tax-region [client item]
+  (let [region (tax-region-from-item item)]
+    (if (not= "Desconhecido" region)
+      region
+      (countries/country-code (:country client)))))
+
+(defn item-xml [idx client doc item]
   (xml/element :Line {}
                (xml/element :LineNumber {} (inc idx))
                (xml/element :ProductCode {} (common/get-str item :name))
@@ -51,7 +63,7 @@
                  (xml/element :CreditAmount {} (:subtotal item)))
                (xml/element :Tax {}
                             (xml/element :TaxType {} "IVA")
-                            (xml/element :TaxCountryRegion {} "PT")
+                            (xml/element :TaxCountryRegion {} (tax-region client item))
                             (xml/element :TaxCode {} "NOR")
                             (xml/element :TaxPercentage {} "23.0"))
                (when (exempt? item)
