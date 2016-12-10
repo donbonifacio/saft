@@ -180,7 +180,7 @@
     (generate-saft {:account-id (get-in data [:options :account-id])
                       :year year
                       :begin (str year "-01-01")
-                      :end (str year "-12-01")
+                      :end (str year "-12-31")
                       :output output
                       :db db
                       :formatted (boolean (get-in data [:options :formatted]))})))
