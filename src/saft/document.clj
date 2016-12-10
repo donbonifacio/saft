@@ -27,8 +27,8 @@
 
 (defn owner-documents-query
   [{:keys [db account-id account begin end]} documents]
-  (common/time-info "[SQL] Fetch owner documents"
-    (let [doc-ids (doall (keep :owner_invoice_id documents))]
+  (let [doc-ids (doall (distinct (keep :owner_invoice_id documents)))]
+    (common/time-info (str "[SQL] Fetch " (count doc-ids)  " owner documents")
       (if (empty? doc-ids)
         []
         (j/query db [(str "select document_number, document_serie,
@@ -118,7 +118,6 @@
       0
       (:id client))
     0))
-
 
 (defn owner-invoice-number [cache doc]
   (let [owner-invoice-id (:owner_invoice_id doc)]
