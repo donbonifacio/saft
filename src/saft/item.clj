@@ -49,7 +49,7 @@
       region
       (countries/country-code (:country client)))))
 
-(defn item-xml [idx client doc item]
+(defn item-xml [idx client doc owner-invoice-number item]
   (xml/element :Line {}
                (xml/element :LineNumber {} (inc idx))
                (xml/element :ProductCode {} (common/get-str item :name))
@@ -58,6 +58,9 @@
                (xml/element :UnitOfMeasure {} (or (:unit item) "unit"))
                (xml/element :UnitPrice {} (:unit_price item))
                (xml/element :TaxPointDate {} (common/get-date doc :date))
+               (when owner-invoice-number
+                 (xml/element :References {}
+                   (xml/element :Reference {} owner-invoice-number)))
                (xml/element :Description {} (description item))
                (if (= "CreditNote" (:type doc))
                  (xml/element :DebitAmount {} (:subtotal item))

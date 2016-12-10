@@ -24,12 +24,13 @@
   "Gets all needed data from storage"
   [{:keys [account-id begin end] :as args}]
   (let [account (account/account-query args)
-        args (assoc args :account account)]
-
+        args (assoc args :account account)
+        documents (document/documents-query args)]
     {:account account
      :clients (client/clients-query args)
      :products (product/products-query args)
-     :documents (document/documents-query args)}))
+     :documents documents
+     :owner-documents (document/owner-documents-query args documents)}))
 
 (defn preload-docs [data docs]
   (let [doc-ids (map :id docs)

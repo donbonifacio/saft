@@ -35,6 +35,9 @@
 (defn guide-documents [account]
   ["Shipping" "Devolution" "Transport"])
 
+(defn guide? [type-name]
+  (first (filter #(= type-name %) guide-documents)))
+
 (defn payment-documents [account]
   ["Receipt"])
 

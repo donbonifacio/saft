@@ -25,6 +25,18 @@
                         order by invoices.id asc;")
                   account-id])))
 
+(defn owner-documents-query
+  [{:keys [db account-id account begin end]} documents]
+  (common/time-info "[SQL] Fetch owner documents"
+    (let [doc-ids (doall (keep :owner_invoice_id documents))]
+      (if (empty? doc-ids)
+        []
+        (j/query db [(str "select document_number, document_serie,
+                                  raw_owner_invoice, type
+                          from invoices
+                          where id <> owner_invoice_id
+                                and owner_invoice_id in (" (clojure.string/join "," doc-ids) ")")])))))
+
 (defn prepare-items [cache account doc]
   (cond
     (some? (:items doc)) doc
@@ -73,6 +85,12 @@
        "/"
        (:document_number doc)))
 
+(defn guide-number
+  "Gets the proper guide document number. Tries to get the account version
+  for the document via the cache."
+  [cache account doc]
+  "XXX")
+
 (defn final-date [doc]
   (common/saft-date (or (:final_date doc)
                         (:updated_at doc))))
@@ -101,6 +119,22 @@
       (:id client))
     0))
 
+
+(defn owner-invoice-number [cache doc]
+  (let [owner-invoice-id (:owner_invoice_id doc)]
+    (if (or (nil? owner-invoice-id)
+            (= owner-invoice-id (:id doc)))
+      nil
+      (let [owner-invoice (get-in cache [:owner-documents owner-invoice-id])]
+        (assert owner-invoice)
+        (cond
+          (some? (:raw_owner_invoice owner-invoice))
+            (:raw_owner_invoice owner-invoice)
+          (common/guide? (:type owner-invoice))
+            (guide-number owner-invoice)
+          :else
+            (number owner-invoice))))))
+
 (defn document-xml
   [cache account doc]
   (let [doc (prepare-items cache account doc)]
@@ -124,7 +158,11 @@
                    (xml/element :SystemEntryDate {} (final-date doc))
                    (xml/element :CustomerID {} (customer-id cache doc))
                    (map-indexed (fn item-xml [idx item]
-                                  (item/item-xml idx (client cache doc) doc item))
+                                  (item/item-xml idx
+                                                 (client cache doc)
+                                                 doc
+                                                 (owner-invoice-number cache doc)
+                                                 item))
                                 (:items doc))
                    (xml/element :DocumentTotals {}
                                 (xml/element :TaxPayable {} (total-taxes doc))
