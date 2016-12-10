@@ -5,6 +5,7 @@
             [clojure.java.io :as io]
             [clojure.tools.cli :as cli]
             [clj-yaml.core :as yaml]
+            [clj-time.core :as t]
             [saft.tax-table :as tax-table]
             [saft.common :as common]
             [saft.document :as document]
@@ -99,11 +100,11 @@
   (float  (/ (.length (io/file output)) (* 1024 1024))))
 
 (defn generate-saft
-  [{:keys [account-id output formatted db] :as args}]
+  [{:keys [account-id output formatted db begin end] :as args}]
   (common/time-info (str "[ALL] Complete SAFT [" output "]")
      (do
        (println "---------------------")
-       (println "SAF-T for Account-id:" account-id)
+       (println "SAF-T for Account-id:" account-id "from" begin "to" end)
        (let [args (if (nil? db)
                     (assoc args :db local-db)
                     args)
@@ -173,14 +174,17 @@
 (defn -main [& args]
   (let [data (cli/parse-opts args cli-options)
         year (get-in data [:options :year] 2016)
-        month (get-in data [:options :month] 1)
+        month-start (get-in data [:options :month] 1)
+        month-end (if (get-in data [:options :month])
+                    month-start
+                    12)
         output (get-in data [:options :output] "saft.xml")
         db (load-db-conn (:options data))]
     (println "Using DB data: " db)
     (generate-saft {:account-id (get-in data [:options :account-id])
                       :year year
-                      :begin (str year "-01-01")
-                      :end (str year "-12-31")
+                      :begin (str year "-" month-start "-01")
+                      :end (str year "-" month-end "-" (t/day (t/last-day-of-the-month year month-end)))
                       :output output
                       :db db
                       :formatted (boolean (get-in data [:options :formatted]))})))
