@@ -46,6 +46,7 @@
 (defn- write-documents [data docs]
   (let [cache {}
         cache {:items (preload-docs data docs)
+               :owner-documents (group-by :id (:owner-documents data))
                :clients (group-by (fn [client]
                                     [(:client_id client) (:version client)])
                                   (:clients data))

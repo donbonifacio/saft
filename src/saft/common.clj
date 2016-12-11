@@ -32,11 +32,14 @@
 (defn credit-documents [account]
   ["CreditNote"])
 
-(defn guide-documents [account]
-  ["Shipping" "Devolution" "Transport"])
+(defn guide-documents
+  ([]
+   (guide-documents nil))
+  ([account]
+   ["Shipping" "Devolution" "Transport"]))
 
 (defn guide? [type-name]
-  (first (filter #(= type-name %) guide-documents)))
+  (first (filter #(= type-name %) (guide-documents))))
 
 (defn payment-documents [account]
   ["Receipt"])

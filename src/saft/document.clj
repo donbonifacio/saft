@@ -15,7 +15,7 @@
                           total, total_taxes, total_before_taxes,
                           account_id, account_version, saft_hash,
                           created_at, updated_at, final_date, date,
-                          client_id, client_version,
+                          client_id, client_version, owner_invoice_id,
                           tax_exemption_message
                         from invoices
                         where account_id = ?
@@ -31,11 +31,11 @@
     (common/time-info (str "[SQL] Fetch " (count doc-ids)  " owner documents")
       (if (empty? doc-ids)
         []
-        (j/query db [(str "select document_number, document_serie,
+        (j/query db [(str "select id, document_number, document_serie,
                                   raw_owner_invoice, type
                           from invoices
-                          where id <> owner_invoice_id
-                                and owner_invoice_id in (" (clojure.string/join "," doc-ids) ")")])))))
+                          where (id <> owner_invoice_id or owner_invoice_id is null)
+                                and id in (" (clojure.string/join "," doc-ids) ")")])))))
 
 (defn prepare-items [cache account doc]
   (cond
@@ -119,20 +119,20 @@
       (:id client))
     0))
 
-(defn owner-invoice-number [cache doc]
+(defn owner-invoice-number [cache account doc]
   (let [owner-invoice-id (:owner_invoice_id doc)]
     (if (or (nil? owner-invoice-id)
             (= owner-invoice-id (:id doc)))
       nil
-      (let [owner-invoice (get-in cache [:owner-documents owner-invoice-id])]
-        (assert owner-invoice)
+      (let [owner-invoice (first (get-in cache [:owner-documents owner-invoice-id]))]
+        (assert owner-invoice (str "No document for owner-invoice-id " owner-invoice-id " - invoice " (:id doc)))
         (cond
           (some? (:raw_owner_invoice owner-invoice))
             (:raw_owner_invoice owner-invoice)
           (common/guide? (:type owner-invoice))
             (guide-number owner-invoice)
           :else
-            (number owner-invoice))))))
+            (number cache account owner-invoice))))))
 
 (defn document-xml
   [cache account doc]
@@ -160,7 +160,7 @@
                                   (item/item-xml idx
                                                  (client cache doc)
                                                  doc
-                                                 (owner-invoice-number cache doc)
+                                                 (owner-invoice-number cache account doc)
                                                  item))
                                 (:items doc))
                    (xml/element :DocumentTotals {}
@@ -168,4 +168,5 @@
                                 (xml/element :NetTotal {} (:total_before_taxes doc))
                                 (xml/element :GrossTotal {} (gross-total doc)))
                    (when (and (some? (:retention doc)) (pos? (:retention doc)))
-                     (xml/element :WithholdingTax {} (retention doc))))))
+                     (xml/element :WithholdingTax {}
+                                  (xml/element :WithholdingTaxAmount {} (retention doc)))))))
