@@ -80,6 +80,10 @@
      (concat (debit-documents account)
              (credit-documents account))))
 
+(defn saft-guides-condition [account]
+  (types-condition
+     (guide-documents account)))
+
 (defn all-types-condition [account]
   (types-condition
      (concat (debit-documents account)

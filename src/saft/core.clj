@@ -18,6 +18,7 @@
             [saft.header :as header]
             [saft.product :as product]
             [saft.payment-totals :as payment-totals]
+            [saft.guide-totals :as guide-totals]
             [saft.accounting-relevant-totals :as accounting-relevant-totals]))
 
 (def local-db {:host "localhost"
@@ -73,6 +74,13 @@
                  (accounting-relevant-totals/totals-xml totals)
                  (map #(document/document-xml cache (:account data) %) docs))))
 
+(defn- write-guides [data]
+  (let [totals (guide-totals/run (:db data) data)]
+    (println "[INFO] Guide totals" totals)
+    (xml/element :MovementOfGoods {}
+                 (guide-totals/totals-xml totals)
+                 #_(map #(document/document-xml cache (:account data) %) docs))))
+
 (defn- write-payments [data]
   (let [totals (payment-totals/run (:db data) data)]
     (println "[INFO] Payment totals" totals)
@@ -109,6 +117,7 @@
                             (write-tax-table data))
                (xml/element :SourceDocuments {}
                             (write-documents data)
+                            (write-guides data)
                             (write-payments data))))
 
 (defn ppxml [xml]
