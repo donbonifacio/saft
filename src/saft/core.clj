@@ -15,6 +15,7 @@
             [saft.client :as client]
             [saft.payment-method :as payment-method]
             [saft.payment-item :as payment-item]
+            [saft.guide-item :as guide-item]
             [saft.account :as account]
             [saft.header :as header]
             [saft.product :as product]
@@ -51,6 +52,11 @@
         items (payment-item/payment-items-query data doc-ids)]
     items))
 
+(defn preload-guide-items [data docs]
+  (let [doc-ids (map :id docs)
+        items (guide-item/guide-items-query data doc-ids)]
+    (group-by :invoice_id items)))
+
 (defn preload-paid-documents [data doc-ids]
   (let [documents (document/documents-by-ids-query data doc-ids)]
     documents))
@@ -78,7 +84,10 @@
 (defn- write-guides [data]
   (let [totals (guide-totals/run (:db data) data)
         guides (guide/guides-query data)
-        cache {:clients (group-by (fn [client]
+        guide-items (preload-guide-items data guides)
+        cache {:account (:account data)
+               :items guide-items
+               :clients (group-by (fn [client]
                                     [(:client_id client) (:version client)])
                                   (:clients data))
                :account-versions (preload-account-versions data guides)}]

@@ -6,7 +6,7 @@
     [saft.account :as account]
     [saft.document :as document]
     [saft.payment-method :as payment-method]
-    [saft.payment-item :as payment-item]
+    [saft.guide-item :as guide-item]
     [saft.item :as item]))
 
 (defn guides-query
@@ -14,7 +14,7 @@
   (common/query-time-info "[SQL] Fetch guides"
      (j/query db [(str " select invoices.id, type, sequence_number,
                             document_number, document_serie,
-                            retention, loaded_at,
+                            retention, loaded_at, at_doc_code_id,
                             total, total_taxes, total_before_taxes,
                             invoices.account_id, account_version, saft_hash,
                             invoices.created_at, invoices.updated_at, final_date, date,
@@ -60,7 +60,8 @@
 
 (defn guide-xml
   [cache account doc]
-  (let [account-version (account/for-document cache account doc)]
+  (let [account-version (account/for-document cache account doc)
+        items (get-in cache [:items (:id doc)])]
     (xml/element :StockMovement {}
                  (xml/element :DocumentNumber {} (document/guide-number cache account doc))
                  (xml/element :DocumentStatus {}
@@ -77,6 +78,14 @@
                  (xml/element :ShipTo {} (address doc "to"))
                  (xml/element :ShipFrom {} (address doc "from"))
                  (xml/element :MovementStartTime {} (movement-start-time doc))
+                 (when (:at_doc_code_id doc)
+                   (xml/element :AtDocCodeID {} (:at_doc_code_id doc)))
+                 (map-indexed #(guide-item/guide-item-xml %1
+                                                          (document/client cache doc)
+                                                          doc
+                                                          %2
+                                                          cache)
+                              items)
                  (xml/element :DocumentTotals {}
                                (xml/element :TaxPayable {} (document/total-taxes doc))
                                (xml/element :NetTotal {} (:total_before_taxes doc))
