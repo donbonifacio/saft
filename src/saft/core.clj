@@ -9,8 +9,10 @@
             [saft.tax-table :as tax-table]
             [saft.common :as common]
             [saft.document :as document]
+            [saft.payment :as payment]
             [saft.item :as item]
             [saft.client :as client]
+            [saft.payment-method :as payment-method]
             [saft.account :as account]
             [saft.header :as header]
             [saft.product :as product]
@@ -36,6 +38,11 @@
         items (item/items-query data doc-ids)]
     (group-by :invoice_id items)))
 
+(defn preload-payment-methods [data docs]
+  (let [doc-ids (map :id docs)
+        items (payment-method/payment-methods-query data doc-ids)]
+    (group-by :receipt_id items)))
+
 (defn preload-account-versions [data docs]
   (let [account-versions (map :account_version docs)
         versions (account/account-versions-query data account-versions)]
@@ -57,12 +64,14 @@
                  (map #(document/document-xml cache (:account data) %) docs))))
 
 (defn- write-payments [data]
-  (let [cache {}
-        totals (payment-totals/run (:db data) data)]
+  (let [totals (payment-totals/run (:db data) data)
+        receipts (payment/receipts-query data)
+        cache {:payment-methods (preload-payment-methods data receipts)
+               :account-versions (preload-account-versions data receipts)}]
     (println "[INFO] Payment totals" totals)
     (xml/element :Payments {}
                  (payment-totals/totals-xml totals)
-                 #_(map #(document/document-xml cache (:account data) %) docs))))
+                 (map #(payment/payment-xml cache (:account data) %) receipts))))
 
 (defn write-tax-table [data]
   (let [tax-table (tax-table/run (:db data) data)]
