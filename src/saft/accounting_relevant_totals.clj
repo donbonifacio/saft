@@ -1,5 +1,6 @@
 (ns saft.accounting-relevant-totals
   (:require
+    [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
     [saft.common :as common]))
 
@@ -21,6 +22,11 @@
                       "and invoices.account_id = " (:id account) " "
                       "and (invoices.status in (" (common/saft-status-str) ")) "
                       "and " (common/saft-types-condition account) " "
-                      "and (invoices.date between '" begin "' and '" end "');")]
-      (first (j/query db [sql])))))
+                      "and (invoices.date between '" begin "' and '" end "');")
+          result (first (j/query db [sql]))]
+      result)))
 
+(defn totals-xml [totals]
+  [(xml/element :NumberOfEntries {} (:number_of_entries totals))
+   (xml/element :TotalDebit {} (:total_debit totals))
+   (xml/element :TotalCredit {} (:total_credit totals))])

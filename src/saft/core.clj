@@ -14,6 +14,7 @@
             [saft.account :as account]
             [saft.header :as header]
             [saft.product :as product]
+            [saft.payment-totals :as payment-totals]
             [saft.accounting-relevant-totals :as accounting-relevant-totals]))
 
 (def local-db {:host "localhost"
@@ -25,13 +26,10 @@
   "Gets all needed data from storage"
   [{:keys [account-id begin end] :as args}]
   (let [account (account/account-query args)
-        args (assoc args :account account)
-        documents (document/documents-query args)]
+        args (assoc args :account account)]
     {:account account
      :clients (client/clients-query args)
-     :products (product/products-query args)
-     :documents documents
-     :owner-documents (document/owner-documents-query args documents)}))
+     :products (product/products-query args)}))
 
 (defn preload-docs [data docs]
   (let [doc-ids (map :id docs)
@@ -43,21 +41,28 @@
         versions (account/account-versions-query data account-versions)]
     (group-by :version versions)))
 
-(defn- write-documents [data docs]
-  (let [cache {}
+(defn- write-documents [data]
+  (let [docs (document/documents-query data)
+        owner-documents (document/owner-documents-query data docs)
         cache {:items (preload-docs data docs)
-               :owner-documents (group-by :id (:owner-documents data))
+               :owner-documents (group-by :id owner-documents)
                :clients (group-by (fn [client]
                                     [(:client_id client) (:version client)])
                                   (:clients data))
                :account-versions (preload-account-versions data docs)}
         totals (accounting-relevant-totals/run (:db data) data)]
-    (println "[INFO] Totals: " totals)
+    (println "[INFO] Accounting relevant totals" totals)
     (xml/element :SalesInvoices {}
-                 (xml/element :NumberOfEntries {} (:number_of_entries totals))
-                 (xml/element :TotalDebit {} (:total_debit totals))
-                 (xml/element :TotalCredit {} (:total_credit totals))
+                 (accounting-relevant-totals/totals-xml totals)
                  (map #(document/document-xml cache (:account data) %) docs))))
+
+(defn- write-payments [data]
+  (let [cache {}
+        totals (payment-totals/run (:db data) data)]
+    (println "[INFO] Payment totals" totals)
+    (xml/element :Payments {}
+                 (payment-totals/totals-xml totals)
+                 #_(map #(document/document-xml cache (:account data) %) docs))))
 
 (defn write-tax-table [data]
   (let [tax-table (tax-table/run (:db data) data)]
@@ -76,7 +81,8 @@
                             (product/products-xml (:products data))
                             (write-tax-table data))
                (xml/element :SourceDocuments {}
-                            (write-documents data (:documents data)))))
+                            (write-documents data)
+                            (write-payments data))))
 
 (defn ppxml [xml]
   (let [in (javax.xml.transform.stream.StreamSource.
