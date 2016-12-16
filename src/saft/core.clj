@@ -74,22 +74,22 @@
                  (map #(document/document-xml cache (:account data) %) docs))))
 
 (defn- write-payments [data]
-  (let [totals (payment-totals/run (:db data) data)
-        receipts (payment/receipts-query data)
-        owner-documents (document/owner-documents-query data receipts)
-        payment-items (preload-payment-items data receipts)
-        paid-documents (preload-paid-documents data (map :document_id payment-items))
-        cache {:account (:account data)
-               :payment-methods (preload-payment-methods data receipts)
-               :payment-items (group-by :receipt_id payment-items)
-               :paid-documents (group-by :id paid-documents)
-               :owner-documents (group-by :id owner-documents)
-               :account-versions (preload-account-versions data (concat receipts paid-documents))}]
+  (let [totals (payment-totals/run (:db data) data)]
     (println "[INFO] Payment totals" totals)
     (when (not (zero? (:number_of_entries totals)))
-      (xml/element :Payments {}
-                   (payment-totals/totals-xml totals)
-                   (map #(payment/payment-xml cache (:account data) %) receipts)))))
+      (let [receipts (payment/receipts-query data)
+            owner-documents (document/owner-documents-query data receipts)
+            payment-items (preload-payment-items data receipts)
+            paid-documents (preload-paid-documents data (map :document_id payment-items))
+            cache {:account (:account data)
+                   :payment-methods (preload-payment-methods data receipts)
+                   :payment-items (group-by :receipt_id payment-items)
+                   :paid-documents (group-by :id paid-documents)
+                   :owner-documents (group-by :id owner-documents)
+                   :account-versions (preload-account-versions data (concat receipts paid-documents))}]
+        (xml/element :Payments {}
+                     (payment-totals/totals-xml totals)
+                     (map #(payment/payment-xml cache (:account data) %) receipts))))))
 
 (defn write-tax-table [data]
   (let [tax-table (tax-table/run (:db data) data)]
