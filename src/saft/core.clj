@@ -9,6 +9,7 @@
             [saft.tax-table :as tax-table]
             [saft.common :as common]
             [saft.document :as document]
+            [saft.guide :as guide]
             [saft.payment :as payment]
             [saft.item :as item]
             [saft.client :as client]
@@ -75,11 +76,16 @@
                  (map #(document/document-xml cache (:account data) %) docs))))
 
 (defn- write-guides [data]
-  (let [totals (guide-totals/run (:db data) data)]
+  (let [totals (guide-totals/run (:db data) data)
+        guides (guide/guides-query data)
+        cache {:clients (group-by (fn [client]
+                                    [(:client_id client) (:version client)])
+                                  (:clients data))
+               :account-versions (preload-account-versions data guides)}]
     (println "[INFO] Guide totals" totals)
     (xml/element :MovementOfGoods {}
                  (guide-totals/totals-xml totals)
-                 #_(map #(document/document-xml cache (:account data) %) docs))))
+                 (map #(guide/guide-xml cache (:account data) %) guides))))
 
 (defn- write-payments [data]
   (let [totals (payment-totals/run (:db data) data)]

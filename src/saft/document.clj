@@ -95,11 +95,21 @@
        "/"
        (:document_number doc)))
 
+(defn movement-type [type-name]
+  (case type-name
+    "Shipping" "GR"
+    "Transport" "GT"
+    "Devolution" "GD"))
+
 (defn guide-number
   "Gets the proper guide document number. Tries to get the account version
   for the document via the cache."
   [cache account doc]
-  "XXX")
+  (str (movement-type (:type doc))
+       " "
+       (:document_serie doc)
+       "/"
+       (:document_number doc)))
 
 (defn final-date [doc]
   (common/saft-date (or (:final_date doc)
