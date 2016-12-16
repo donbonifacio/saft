@@ -16,7 +16,6 @@
     []))
 
 (defn payment-method-xml [item]
-  (prn item)
   (xml/element :PaymentMethod {}
                (xml/element :PaymentMechanism {} (:payment_mechanism item))
                (xml/element :PaymentAmount {} (:amount item))

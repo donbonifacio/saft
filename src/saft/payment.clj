@@ -38,9 +38,13 @@
        "/"
        (:document_number doc)))
 
+(defn gross-total [owner-invoice doc]
+  (+ (:total_taxes owner-invoice) (:total_before_taxes doc)))
+
 (defn payment-xml
   [cache account doc]
   (let [account-version (account/for-document cache account doc)
+        owner-invoice (first (get-in cache [:owner-documents (:owner_invoice_id doc)]))
         payment-methods (get-in cache [:payment-methods (:id doc)])]
     (xml/element :Payment {}
                  (xml/element :PaymentRefNo {} (receipt-number account-version doc))
@@ -52,6 +56,15 @@
                               (xml/element :PaymentStatusDate {} (document/final-date doc))
                               (xml/element :SourceID {} (:id account))
                               (xml/element :SourcePayment {} "P"))
-                 (map payment-method/payment-method-xml payment-methods))
+                 (map payment-method/payment-method-xml payment-methods)
+                 (xml/element :SourceID {} (:id account))
+                 (xml/element :SystemEntryDate {} (document/final-date doc))
+                 (xml/element :CustomerID {} (document/customer-id cache doc))
+                 (xml/element :DocumentTotals {}
+                              (xml/element :TaxPayable {} (document/total-taxes doc))
+                              (xml/element :NetTotal {} (:total_before_taxes doc))
+                              (xml/element :GrossTotal {} (gross-total owner-invoice doc)))
+
+                 )
                  )
     )

@@ -66,7 +66,9 @@
 (defn- write-payments [data]
   (let [totals (payment-totals/run (:db data) data)
         receipts (payment/receipts-query data)
+        owner-documents (document/owner-documents-query data receipts)
         cache {:payment-methods (preload-payment-methods data receipts)
+               :owner-documents (group-by :id owner-documents)
                :account-versions (preload-account-versions data receipts)}]
     (println "[INFO] Payment totals" totals)
     (xml/element :Payments {}

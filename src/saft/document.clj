@@ -32,7 +32,7 @@
       (if (empty? doc-ids)
         []
         (j/query db [(str "select id, document_number, document_serie,
-                                  raw_owner_invoice, type
+                                  raw_owner_invoice, type, total_taxes
                           from invoices
                           where (id <> owner_invoice_id or owner_invoice_id is null)
                                 and id in (" (clojure.string/join "," doc-ids) ")")])))))
