@@ -32,9 +32,13 @@
   "Gets all needed data from storage"
   [{:keys [account-id begin end] :as args}]
   (let [account (account/account-query args)
-        args (assoc args :account account)]
+        args (assoc args :account account)
+        clients (client/clients-query args)]
     {:account account
-     :clients (client/clients-query args)
+     :clients clients
+     :clients-by-version (group-by (fn [client]
+                                       [(:client_id client) (:version client)])
+                                     clients)
      :products (product/products-query args)}))
 
 (defn preload-docs [data docs]
@@ -71,9 +75,7 @@
         owner-documents (document/owner-documents-query data docs)
         cache {:items (preload-docs data docs)
                :owner-documents (group-by :id owner-documents)
-               :clients (group-by (fn [client]
-                                    [(:client_id client) (:version client)])
-                                  (:clients data))
+               :clients (:clients-by-version data)
                :account-versions (preload-account-versions data docs)}
         totals (accounting-relevant-totals/run (:db data) data)]
     (println "[INFO] Accounting relevant totals" totals)
@@ -82,19 +84,18 @@
                  (map #(document/document-xml cache (:account data) %) docs))))
 
 (defn- write-guides [data]
-  (let [totals (guide-totals/run (:db data) data)
-        guides (guide/guides-query data)
-        guide-items (preload-guide-items data guides)
-        cache {:account (:account data)
-               :items guide-items
-               :clients (group-by (fn [client]
-                                    [(:client_id client) (:version client)])
-                                  (:clients data))
-               :account-versions (preload-account-versions data guides)}]
+  (let [totals (guide-totals/run (:db data) data)]
     (println "[INFO] Guide totals" totals)
-    (xml/element :MovementOfGoods {}
-                 (guide-totals/totals-xml totals)
-                 (map #(guide/guide-xml cache (:account data) %) guides))))
+    (when (not (zero? (:line_count totals)))
+      (let[guides (guide/guides-query data)
+           guide-items (preload-guide-items data guides)
+           cache {:account (:account data)
+                  :items guide-items
+                  :clients (:clients-by-version data)
+                  :account-versions (preload-account-versions data guides)}]
+        (xml/element :MovementOfGoods {}
+                     (guide-totals/totals-xml totals)
+                     (map #(guide/guide-xml cache (:account data) %) guides))))))
 
 (defn- write-payments [data]
   (let [totals (payment-totals/run (:db data) data)]
