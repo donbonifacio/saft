@@ -37,6 +37,16 @@
                           where (id <> owner_invoice_id or owner_invoice_id is null)
                                 and id in (" (clojure.string/join "," doc-ids) ")")])))))
 
+(defn documents-by-ids-query
+  [{:keys [db account-id account begin end]} doc-ids]
+  (common/time-info (str "[SQL] Fetch " (count doc-ids)  " documents by ids")
+    (if (empty? doc-ids)
+      []
+      (j/query db [(str "select id, document_number, document_serie,
+                                raw_owner_invoice, type, total_taxes, date
+                        from invoices
+                        where id in (" (clojure.string/join "," doc-ids) ")")]))))
+
 (defn prepare-items [cache account doc]
   (cond
     (some? (:items doc)) doc

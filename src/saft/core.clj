@@ -13,6 +13,7 @@
             [saft.item :as item]
             [saft.client :as client]
             [saft.payment-method :as payment-method]
+            [saft.payment-item :as payment-item]
             [saft.account :as account]
             [saft.header :as header]
             [saft.product :as product]
@@ -43,6 +44,15 @@
         items (payment-method/payment-methods-query data doc-ids)]
     (group-by :receipt_id items)))
 
+(defn preload-payment-items [data docs]
+  (let [doc-ids (map :id docs)
+        items (payment-item/payment-items-query data doc-ids)]
+    items))
+
+(defn preload-paid-documents [data doc-ids]
+  (let [documents (document/documents-by-ids-query data doc-ids)]
+    documents))
+
 (defn preload-account-versions [data docs]
   (let [account-versions (map :account_version docs)
         versions (account/account-versions-query data account-versions)]
@@ -67,9 +77,14 @@
   (let [totals (payment-totals/run (:db data) data)
         receipts (payment/receipts-query data)
         owner-documents (document/owner-documents-query data receipts)
-        cache {:payment-methods (preload-payment-methods data receipts)
+        payment-items (preload-payment-items data receipts)
+        paid-documents (preload-paid-documents data (map :document_id payment-items))
+        cache {:account (:account data)
+               :payment-methods (preload-payment-methods data receipts)
+               :payment-items (group-by :receipt_id payment-items)
+               :paid-documents (group-by :id paid-documents)
                :owner-documents (group-by :id owner-documents)
-               :account-versions (preload-account-versions data receipts)}]
+               :account-versions (preload-account-versions data (concat receipts paid-documents))}]
     (println "[INFO] Payment totals" totals)
     (xml/element :Payments {}
                  (payment-totals/totals-xml totals)

@@ -6,6 +6,7 @@
     [saft.account :as account]
     [saft.document :as document]
     [saft.payment-method :as payment-method]
+    [saft.payment-item :as payment-item]
     [saft.item :as item]))
 
 (defn receipts-query
@@ -45,7 +46,8 @@
   [cache account doc]
   (let [account-version (account/for-document cache account doc)
         owner-invoice (first (get-in cache [:owner-documents (:owner_invoice_id doc)]))
-        payment-methods (get-in cache [:payment-methods (:id doc)])]
+        payment-methods (get-in cache [:payment-methods (:id doc)])
+        payment-items (get-in cache [:payment-items (:id doc)])]
     (xml/element :Payment {}
                  (xml/element :PaymentRefNo {} (receipt-number account-version doc))
                  (xml/element :TransactionDate {} (common/get-date doc :date))
@@ -60,6 +62,7 @@
                  (xml/element :SourceID {} (:id account))
                  (xml/element :SystemEntryDate {} (document/final-date doc))
                  (xml/element :CustomerID {} (document/customer-id cache doc))
+                 (map-indexed #(payment-item/payment-item-xml %1 %2 cache) payment-items)
                  (xml/element :DocumentTotals {}
                               (xml/element :TaxPayable {} (document/total-taxes doc))
                               (xml/element :NetTotal {} (:total_before_taxes doc))
