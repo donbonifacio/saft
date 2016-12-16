@@ -6,7 +6,7 @@
 
 (defn products-query
   [{:keys [db account-id account begin end]}]
-  (common/time-info "[SQL] Fetch products"
+  (common/query-time-info "[SQL] Fetch products"
     (j/query db [(str "select distinct products.id,
                          products.description, products.name, products.unit
                        from products

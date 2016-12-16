@@ -7,7 +7,7 @@
 (defn payment-methods-query
   [{:keys [db]} doc-ids]
   (if-let [doc-ids (seq doc-ids)]
-    (common/time-info (str "[SQL] Fetch payment methods for " (count doc-ids) " document(s)")
+    (common/query-time-info (str "[SQL] Fetch payment methods for " (count doc-ids) " document(s)")
                (j/query db [(str "select amount, payment_mechanism, payment_date,
                                          receipt_id
                                   from partial_payments

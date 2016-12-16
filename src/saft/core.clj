@@ -86,9 +86,10 @@
                :owner-documents (group-by :id owner-documents)
                :account-versions (preload-account-versions data (concat receipts paid-documents))}]
     (println "[INFO] Payment totals" totals)
-    (xml/element :Payments {}
-                 (payment-totals/totals-xml totals)
-                 (map #(payment/payment-xml cache (:account data) %) receipts))))
+    (when (not (zero? (:number_of_entries totals)))
+      (xml/element :Payments {}
+                   (payment-totals/totals-xml totals)
+                   (map #(payment/payment-xml cache (:account data) %) receipts)))))
 
 (defn write-tax-table [data]
   (let [tax-table (tax-table/run (:db data) data)]

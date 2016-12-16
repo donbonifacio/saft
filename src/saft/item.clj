@@ -9,7 +9,7 @@
 (defn items-query
   [{:keys [db]} doc-ids]
   (if-let [doc-ids (seq doc-ids)]
-    (common/time-info (str "[SQL] Fetch items for " (count doc-ids) " document(s)")
+    (common/query-time-info (str "[SQL] Fetch items for " (count doc-ids) " document(s)")
                (j/query db [(str
                               "select id, invoice_id, name, description,
                               quantity, unit, unit_price, subtotal, tax_value,

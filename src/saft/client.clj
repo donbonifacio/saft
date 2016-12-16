@@ -7,7 +7,7 @@
 
 (defn clients-query
   [{:keys [db account-id account begin end]}]
-  (common/time-info "[SQL] Fetch clients"
+  (common/query-time-info "[SQL] Fetch clients"
      (j/query db [(str "select distinct client_versions.id,
                           name, fiscal_id, email, website,
                           address, postal_code, country, phone, fax,

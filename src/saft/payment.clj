@@ -11,7 +11,7 @@
 
 (defn receipts-query
   [{:keys [db account-id account begin end]}]
-  (common/time-info "[SQL] Fetch payments"
+  (common/query-time-info "[SQL] Fetch payments"
      (j/query db [(str "select id, sequence_number,
                           document_number, document_serie,
                           retention,

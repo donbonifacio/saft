@@ -8,7 +8,7 @@
 (defn payment-items-query
   [{:keys [db]} doc-ids]
   (if-let [doc-ids (seq doc-ids)]
-    (common/time-info (str "[SQL] Fetch payment items for " (count doc-ids) " document(s)")
+    (common/query-time-info (str "[SQL] Fetch payment items for " (count doc-ids) " document(s)")
                (j/query db [(str "select receipt_id, tax, document_id
                                   from receipt_datas
                                   where receipt_id in ("(clojure.string/join "," doc-ids)")

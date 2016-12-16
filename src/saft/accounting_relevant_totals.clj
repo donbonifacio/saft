@@ -6,7 +6,7 @@
 
 (defn run
   [db {:keys [begin end account]}]
-  (common/time-info "[SQL] Accouting relevant totals query"
+  (common/query-time-info "[SQL] Accouting relevant totals query"
     (let [not_canceled (str "(invoices.status <> 'canceled')")
           belongs_to_debit_type (common/types-condition (common/debit-documents account))
           belongs_to_credit_type (common/types-condition (common/credit-documents account))

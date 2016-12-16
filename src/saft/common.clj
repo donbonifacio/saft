@@ -26,6 +26,15 @@
      (println (str ~info ": " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
      ret#))
 
+(defmacro query-time-info
+  [info expr]
+  `(let [start# (. System (nanoTime))
+         ret# ~expr]
+     (println (str ~info ": "
+                   (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs "
+                   "(loaded " (if (map? ret#) 1 (count ret#)) " rows)"))
+     ret#))
+
 (defn debit-documents [account]
   ["Invoice" "CashInvoice" "DebitNote" "InvoiceReceipt" "SimplifiedInvoice"])
 

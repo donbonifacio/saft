@@ -6,7 +6,7 @@
 
 (defn run
   [db {:keys [begin end account]}]
-  (common/time-info "[SQL] Fetch tax table"
+  (common/query-time-info "[SQL] Fetch tax table"
     (let [sql (str "select distinct taxes.id, taxes.name, region, value "
                     "from taxes "
                        "inner join invoice_items on (invoice_items.tax_id = taxes.id) "

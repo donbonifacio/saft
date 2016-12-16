@@ -8,7 +8,7 @@
 
 (defn documents-query
   [{:keys [db account-id account begin end]}]
-  (common/time-info "[SQL] Fetch documents"
+  (common/query-time-info "[SQL] Fetch documents"
      (j/query db [(str "select id, type, sequence_number,
                           document_number, document_serie,
                           retention,
@@ -28,7 +28,7 @@
 (defn owner-documents-query
   [{:keys [db account-id account begin end]} documents]
   (let [doc-ids (doall (distinct (keep :owner_invoice_id documents)))]
-    (common/time-info (str "[SQL] Fetch " (count doc-ids)  " owner documents")
+    (common/query-time-info (str "[SQL] Fetch " (count doc-ids)  " owner documents")
       (if (empty? doc-ids)
         []
         (j/query db [(str "select id, document_number, document_serie,
@@ -39,7 +39,7 @@
 
 (defn documents-by-ids-query
   [{:keys [db account-id account begin end]} doc-ids]
-  (common/time-info (str "[SQL] Fetch " (count doc-ids)  " documents by ids")
+  (common/query-time-info (str "[SQL] Fetch " (count doc-ids)  " documents by ids")
     (if (empty? doc-ids)
       []
       (j/query db [(str "select id, document_number, document_serie,
