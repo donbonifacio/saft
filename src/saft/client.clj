@@ -23,6 +23,24 @@
                         order by client_versions.id asc")
                   account-id])))
 
+(defn clients-query-by-documents
+  [{:keys [db account-id]} documents]
+  (common/query-time-info (str "[SQL] Fetch clients for " (count documents) " documents ")
+    (if-let [doc-ids (->> (keep :id documents)
+                          (distinct)
+                          (seq))]
+      (j/query db [(str "select distinct client_versions.id,
+                          name, fiscal_id, email, website,
+                          address, postal_code, country, phone, fax,
+                          version, client_versions.client_id
+                        from client_versions
+                        inner join invoices on (
+                          invoices.client_id = client_versions.client_id
+                          and client_versions.version = invoices.client_version)
+                        where invoices.id in (" (clojure.string/join "," doc-ids)  ")
+                        order by client_versions.id asc")])
+      [])))
+
 (defn final-consumer?
   "True if the client is final consumer"
   [client]

@@ -33,9 +33,11 @@
   [{:keys [account-id begin end] :as args}]
   (let [account (account/account-query args)
         args (assoc args :account account)
-        clients (client/clients-query args)]
+        documents (document/documents-query args)
+        clients (client/clients-query-by-documents args documents)]
     {:account account
      :clients clients
+     :documents documents
      :clients-by-version (group-by (fn [client]
                                        [(:client_id client) (:version client)])
                                      clients)
@@ -71,7 +73,7 @@
     (group-by :version versions)))
 
 (defn- write-documents [data]
-  (let [docs (document/documents-query data)
+  (let [docs (:documents data)
         owner-documents (document/owner-documents-query data docs)
         cache {:items (preload-docs data docs)
                :owner-documents (group-by :id owner-documents)
@@ -121,20 +123,21 @@
                  (map tax-table/tax-table-entry-xml tax-table))))
 
 (defn- write-saft [data account]
-  (xml/element :AuditFile {:xmlns "urn:OECD:StandardAuditFile-Tax:PT_1.03_01"
-                           "xmlns:xsi" "http://www.w3.org/2001/XMLSchema-instance"}
-               (header/header-xml {:year (common/fiscal-year (:start-date data))
-                                   :start-date (:start-date data)
-                                   :end-date (:end-date data)
-                                   :created (common/generated-date)} account)
-               (xml/element :MasterFiles {}
-                            (client/clients-xml (:clients data))
-                            (product/products-xml (:products data))
-                            (write-tax-table data))
-               (xml/element :SourceDocuments {}
-                            (write-documents data)
-                            (write-guides data)
-                            (write-payments data))))
+  (common/time-info "[XML] Build XML structure"
+    (xml/element :AuditFile {:xmlns "urn:OECD:StandardAuditFile-Tax:PT_1.03_01"
+                             "xmlns:xsi" "http://www.w3.org/2001/XMLSchema-instance"}
+                 (header/header-xml {:year (common/fiscal-year (:start-date data))
+                                     :start-date (:start-date data)
+                                     :end-date (:end-date data)
+                                     :created (common/generated-date)} account)
+                 (xml/element :MasterFiles {}
+                              (client/clients-xml (:clients data))
+                              (product/products-xml (:products data))
+                              (write-tax-table data))
+                 (xml/element :SourceDocuments {}
+                              (write-documents data)
+                              (write-guides data)
+                              (write-payments data)))))
 
 (defn ppxml [xml]
   (let [in (javax.xml.transform.stream.StreamSource.
@@ -176,7 +179,7 @@
                               :end (str (:end args) " 23:59:59 "))
              data (merge args (fetch-all-data args))
              account (:account data)
-             tags (common/time-info "[XML] Build XML structure" (write-saft data account))]
+             tags (write-saft data account)]
          (with-open [out-file (java.io.OutputStreamWriter. (java.io.FileOutputStream. output) "UTF-8")]
            (common/time-info "[FILE] Write to file" (xml/emit tags out-file :encoding "UTF-8")))
          (when formatted
