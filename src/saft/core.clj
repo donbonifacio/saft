@@ -220,10 +220,6 @@
       (let [data (yaml/parse-string (slurp yaml-file))
             env (keyword (get options :env "development"))
             config (get data env)]
-        (prn "options" options)
-        (prn "data" data)
-        (prn "env" env)
-        (prn "config" config)
         (assoc {} :user (:username config)
                   :password (when (:password config) (:password config))
                   :host (get config :host "localhost-waza")
