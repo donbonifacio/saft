@@ -34,7 +34,9 @@
   (let [account (account/account-query args)
         args (assoc args :account account)
         documents (document/documents-query args)
-        clients (client/clients-query-by-documents args documents)]
+        ;clients (client/clients-query-by-documents args documents)
+        clients (client/clients-query args)
+        ]
     {:account account
      :clients clients
      :documents documents
