@@ -38,8 +38,8 @@
         clients (client/clients-query args)
         ]
     {:account account
-     :clients clients
      :documents documents
+     :clients clients
      :clients-by-version (group-by (fn [client]
                                        [(:client_id client) (:version client)])
                                      clients)}))
@@ -73,8 +73,19 @@
         versions (account/account-versions-query data account-versions)]
     (group-by :version versions)))
 
+(defn- write-clients [data]
+  (let [clients (or (:clients data)
+                    (client/clients-query data))]
+    (client/clients-xml clients)))
+
+(defn- write-products [data]
+  (let [products (or (:products data)
+                     (product/products-query data))]
+    (product/products-xml products)))
+
 (defn- write-documents [data]
-  (let [docs (:documents data)
+  (let [docs (or (:documents data)
+                 (document/documents-query data))
         owner-documents (document/owner-documents-query data docs)
         cache {:items (preload-docs data docs)
                :owner-documents (group-by :id owner-documents)
@@ -90,7 +101,8 @@
   (let [totals (guide-totals/run (:db data) data)]
     (println "[INFO] Guide totals" totals)
     (when (not (zero? (:line_count totals)))
-      (let[guides (guide/guides-query data)
+      (let[guides (or (:guides data)
+                      (guide/guides-query data))
            guide-items (preload-guide-items data guides)
            cache {:account (:account data)
                   :items guide-items
@@ -104,7 +116,8 @@
   (let [totals (payment-totals/run (:db data) data)]
     (println "[INFO] Payment totals" totals)
     (when (not (zero? (:number_of_entries totals)))
-      (let [receipts (payment/receipts-query data)
+      (let [receipts (or (:receipts data)
+                         (payment/receipts-query data))
             owner-documents (document/owner-documents-query data receipts)
             payment-items (preload-payment-items data receipts)
             paid-documents (preload-paid-documents data (map :document_id payment-items))
@@ -132,10 +145,8 @@
                                      :end-date (:end-date data)
                                      :created (common/generated-date)} account)
                  (xml/element :MasterFiles {}
-                              (client/clients-xml (:clients data))
-                              (let [products (or (:products data)
-                                                 (product/products-query data))]
-                                (product/products-xml products))
+                              (write-clients data)
+                              (write-products data)
                               (write-tax-table data))
                  (xml/element :SourceDocuments {}
                               (write-documents data)
