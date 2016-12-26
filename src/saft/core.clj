@@ -42,8 +42,7 @@
      :documents documents
      :clients-by-version (group-by (fn [client]
                                        [(:client_id client) (:version client)])
-                                     clients)
-     :products (product/products-query args)}))
+                                     clients)}))
 
 (defn preload-docs [data docs]
   (let [doc-ids (map :id docs)
@@ -134,7 +133,9 @@
                                      :created (common/generated-date)} account)
                  (xml/element :MasterFiles {}
                               (client/clients-xml (:clients data))
-                              (product/products-xml (:products data))
+                              (let [products (or (:products data)
+                                                 (product/products-query data))]
+                                (product/products-xml products))
                               (write-tax-table data))
                  (xml/element :SourceDocuments {}
                               (write-documents data)
