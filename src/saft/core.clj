@@ -55,31 +55,31 @@
          :clients clients
          :clients-by-version (clients-by-version clients)}))))
 
-(defn preload-docs [data docs]
+(defn- preload-docs [data docs]
   (let [doc-ids (map :id docs)
         items (item/items-query data doc-ids)]
     (group-by :invoice_id items)))
 
-(defn preload-payment-methods [data docs]
+(defn- preload-payment-methods [data docs]
   (let [doc-ids (map :id docs)
         items (payment-method/payment-methods-query data doc-ids)]
     (group-by :receipt_id items)))
 
-(defn preload-payment-items [data docs]
+(defn- preload-payment-items [data docs]
   (let [doc-ids (map :id docs)
         items (payment-item/payment-items-query data doc-ids)]
     items))
 
-(defn preload-guide-items [data docs]
+(defn- preload-guide-items [data docs]
   (let [doc-ids (map :id docs)
         items (guide-item/guide-items-query data doc-ids)]
     (group-by :invoice_id items)))
 
-(defn preload-paid-documents [data doc-ids]
+(defn- preload-paid-documents [data doc-ids]
   (let [documents (document/documents-by-ids-query data doc-ids)]
     documents))
 
-(defn preload-account-versions [data docs]
+(defn- preload-account-versions [data docs]
   (let [account-versions (map :account_version docs)
         versions (account/account-versions-query data account-versions)]
     (group-by :version versions)))
@@ -251,26 +251,21 @@
                   :password (when (:password config) (:password config))
                   :host (get config :host "localhost-waza")
                   :dbname (:database config)
-                  :dbtype "mysql"
-                  ;:subname (str "jdbc:mysql://" (get config :host "localhost") "/" (:database config) "?user="(:username config)"&password="(:password config)"&autoReconnect=true&useUnicode=true&characterEncoding=UTF-8")
-                  )
-        ))))
+                  :dbtype "mysql")))))
 
 (defn -main [& args]
   (let [data (cli/parse-opts args cli-options)
         year (get-in data [:options :year] 2016)
         month-start (get-in data [:options :month] 1)
-        month-end (if (get-in data [:options :month])
-                    month-start
-                    12)
+        month-end (if (get-in data [:options :month]) month-start 12)
         output (get-in data [:options :output] "saft.xml")
         db (load-db-conn (:options data))]
     (println "Using DB data: " db)
     (generate-saft {:account-id (get-in data [:options :account-id])
-                      :year year
-                      :begin (str year "-" month-start "-01")
-                      :end (str year "-" month-end "-" (t/day (t/last-day-of-the-month year month-end)))
-                      :output output
-                      :preload-all-documents? (boolean (get-in data [:options :preload-all-documents]))
-                      :db db
-                      :formatted (boolean (get-in data [:options :formatted]))})))
+                    :year year
+                    :begin (str year "-" month-start "-01")
+                    :end (str year "-" month-end "-" (t/day (t/last-day-of-the-month year month-end)))
+                    :output output
+                    :preload-all-documents? (boolean (get-in data [:options :preload-all-documents]))
+                    :db db
+                    :formatted (boolean (get-in data [:options :formatted]))})))
