@@ -8,4 +8,5 @@
                        :formatted true
                        ;:begin "2012-01-01" :end "2012-12-31"
                        :begin "2016-12-01" :end "2016-12-31"
+                       :preload-all-documents? true
                        :output "tmp/saft.xml"}))

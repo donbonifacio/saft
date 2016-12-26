@@ -28,21 +28,32 @@
                :dbtype "mysql"
                :user "root"})
 
+(defn- clients-by-version [clients]
+  (group-by (fn [client]
+              [(:client_id client) (:version client)])
+            clients))
+
 (defn- fetch-all-data
   "Gets all needed data from storage"
   [{:keys [account-id begin end] :as args}]
   (let [account (account/account-query args)
-        args (assoc args :account account)
-        documents (document/documents-query args)
-        ;clients (client/clients-query-by-documents args documents)
-        clients (client/clients-query args)
-        ]
-    {:account account
-     :documents documents
-     :clients clients
-     :clients-by-version (group-by (fn [client]
-                                       [(:client_id client) (:version client)])
-                                     clients)}))
+        args (assoc args :account account)]
+    (if (:preload-all-documents? args)
+      (let [documents (document/documents-query args)
+            receipts (payment/receipts-query args)
+            guides (guide/guides-query args)
+            all-docs (concat documents receipts guides)
+            clients (client/clients-query-by-documents args all-docs)]
+        {:account account
+         :documents documents
+         :receipts receipts
+         :guides guides
+         :clients clients
+         :clients-by-version (clients-by-version clients)})
+      (let [clients (client/clients-query args)]
+        {:account account
+         :clients clients
+         :clients-by-version (clients-by-version clients)}))))
 
 (defn preload-docs [data docs]
   (let [doc-ids (map :id docs)
@@ -212,6 +223,8 @@
 
    ["-f" "--formatted" "Format XML"]
 
+   ["-p" "--preload-all-documents" "Preload all documents"]
+
    ["-d" "--database YAML" "Database yaml file"]
 
    ["-e" "--env YAML" "Database yaml file env to use"]
@@ -258,5 +271,6 @@
                       :begin (str year "-" month-start "-01")
                       :end (str year "-" month-end "-" (t/day (t/last-day-of-the-month year month-end)))
                       :output output
+                      :preload-all-documents? (boolean (get-in data [:options :preload-all-documents]))
                       :db db
                       :formatted (boolean (get-in data [:options :formatted]))})))
