@@ -1,4 +1,6 @@
-(ns saft.core
+(ns ^{:added "0.1.0" :author "Pedro Pereira Santos"}
+  saft.core
+  "Generares a SAF-T file"
   (:gen-class)
   (:require [clojure.data.xml :as xml]
             [clojure.java.jdbc :as j]
@@ -23,18 +25,25 @@
             [saft.guide-totals :as guide-totals]
             [saft.accounting-relevant-totals :as accounting-relevant-totals]))
 
-(def local-db {:host "localhost"
-               :dbname "invoicexpress"
-               :dbtype "mysql"
-               :user "root"})
+(def local-db
+  "This is the default local DB"
+  {:host "localhost"
+   :dbname "invoicexpress"
+   :dbtype "mysql"
+   :user "root"})
 
-(defn- clients-by-version [clients]
+(defn clients-by-version
+  "Given a collection of client versions, returns a collection of those clients
+  grouped by the id and the version. This is useful because usually we only
+  have the client_id and the version."
+  [clients]
   (group-by (fn [client]
               [(:client_id client) (:version client)])
             clients))
 
 (defn- fetch-all-data
-  "Gets all needed data from storage"
+  "Gets all needed data from storage. This acts like a cache and can have
+  more or less information based on given configuration."
   [{:keys [account-id begin end] :as args}]
   (let [account (account/account-query args)
         args (assoc args :account account)]
@@ -55,50 +64,68 @@
          :clients clients
          :clients-by-version (clients-by-version clients)}))))
 
-(defn- preload-docs [data docs]
+(defn- preload-doc-items
+  "Fetches the invoice items for the given documents. Groups by invoice_id."
+  [data docs]
   (let [doc-ids (map :id docs)
         items (item/items-query data doc-ids)]
     (group-by :invoice_id items)))
 
-(defn- preload-payment-methods [data docs]
-  (let [doc-ids (map :id docs)
-        items (payment-method/payment-methods-query data doc-ids)]
-    (group-by :receipt_id items)))
-
-(defn- preload-payment-items [data docs]
-  (let [doc-ids (map :id docs)
-        items (payment-item/payment-items-query data doc-ids)]
-    items))
-
-(defn- preload-guide-items [data docs]
+(defn- preload-guide-items
+  "Fetches the invoice items for the given guides Groups by invoice_id."
+  [data docs]
   (let [doc-ids (map :id docs)
         items (guide-item/guide-items-query data doc-ids)]
     (group-by :invoice_id items)))
 
-(defn- preload-paid-documents [data doc-ids]
+(defn- preload-payment-methods
+  "Fetches the payment methods for the given documents. Groups by receipt_id."
+  [data docs]
+  (let [doc-ids (map :id docs)
+        items (payment-method/payment-methods-query data doc-ids)]
+    (group-by :receipt_id items)))
+
+(defn- preload-payment-items
+  "Preloads the payment items for the given documents."
+  [data docs]
+  (let [doc-ids (map :id docs)
+        items (payment-item/payment-items-query data doc-ids)]
+    items))
+
+(defn- preload-paid-documents
+  "Fetches all documents for the provided ids."
+  [data doc-ids]
   (let [documents (document/documents-by-ids-query data doc-ids)]
     documents))
 
-(defn- preload-account-versions [data docs]
+(defn- preload-account-versions
+  "Fetches all the account versions for the given documents."
+  [data docs]
   (let [account-versions (map :account_version docs)
         versions (account/account-versions-query data account-versions)]
     (group-by :version versions)))
 
-(defn- write-clients [data]
+(defn- write-clients
+  "Load and write the clients as SAF-T XML."
+  [data]
   (let [clients (or (:clients data)
                     (client/clients-query data))]
     (client/clients-xml clients)))
 
-(defn- write-products [data]
+(defn- write-products
+  "Load and write the products as SAF-T XML."
+  [data]
   (let [products (or (:products data)
                      (product/products-query data))]
     (product/products-xml products)))
 
-(defn- write-documents [data]
+(defn- write-documents
+  "Load and write the documents as SAF-T XML."
+  [data]
   (let [docs (or (:documents data)
                  (document/documents-query data))
         owner-documents (document/owner-documents-query data docs)
-        cache {:items (preload-docs data docs)
+        cache {:items (preload-doc-items data docs)
                :owner-documents (group-by :id owner-documents)
                :clients (:clients-by-version data)
                :account-versions (preload-account-versions data docs)}
@@ -108,7 +135,9 @@
                  (accounting-relevant-totals/totals-xml totals)
                  (map #(document/document-xml cache (:account data) %) docs))))
 
-(defn- write-guides [data]
+(defn- write-guides
+  "Load and write the guides as SAF-T XML."
+  [data]
   (let [totals (guide-totals/run (:db data) data)]
     (println "[INFO] Guide totals" totals)
     (when (not (zero? (:line_count totals)))
@@ -123,7 +152,9 @@
                      (guide-totals/totals-xml totals)
                      (map #(guide/guide-xml cache (:account data) %) guides))))))
 
-(defn- write-payments [data]
+(defn- write-payments
+  "Load and write the payments as SAF-T XML."
+  [data]
   (let [totals (payment-totals/run (:db data) data)]
     (println "[INFO] Payment totals" totals)
     (when (not (zero? (:number_of_entries totals)))
@@ -142,12 +173,16 @@
                      (payment-totals/totals-xml totals)
                      (map #(payment/payment-xml cache (:account data) %) receipts))))))
 
-(defn write-tax-table [data]
+(defn write-tax-table
+  "Loads and writes the tax table."
+  [data]
   (let [tax-table (tax-table/run (:db data) data)]
     (xml/element :TaxTable {}
                  (map tax-table/tax-table-entry-xml tax-table))))
 
-(defn- write-saft [data account]
+(defn- write-saft
+  "Loads all required information and builds the SAF-T XML."
+  [data account]
   (common/time-info "[XML] Build XML structure"
     (xml/element :AuditFile {:xmlns "urn:OECD:StandardAuditFile-Tax:PT_1.03_01"
                              "xmlns:xsi" "http://www.w3.org/2001/XMLSchema-instance"}
@@ -164,7 +199,9 @@
                               (write-guides data)
                               (write-payments data)))))
 
-(defn ppxml [xml]
+(defn ppxml
+  "Formats xml. It's configured to be the same formatting as IX."
+  [xml]
   (let [in (javax.xml.transform.stream.StreamSource.
              (java.io.StringReader. xml))
         writer (java.io.StringWriter.)
@@ -180,13 +217,18 @@
     (.transform transformer in out)
     (-> out .getWriter .toString)))
 
-(defn used-mem []
+(defn used-mem
+  "Returns the number of MB of used memory."
+  []
   (int (/ (- (-> (java.lang.Runtime/getRuntime) (.totalMemory)) (-> (java.lang.Runtime/getRuntime) (.freeMemory))) (* 1024 1024))))
 
-(defn file-size [output]
+(defn file-size
+  "Given a file name, return its file size em MB."
+  [output]
   (float  (/ (.length (io/file output)) (* 1024 1024))))
 
 (defn generate-saft
+  "Generates a saft given required parameters."
   [{:keys [account-id output formatted db begin end] :as args}]
   (common/time-info (str "[ALL] Complete SAFT [" output "]")
      (do
@@ -215,6 +257,7 @@
          (println "[FILE] File size:" (file-size output) "Mb")))))
 
 (def cli-options
+  "Options available to use on the CLI."
   [["-a" "--account-id ID" "Account ID"
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
@@ -240,6 +283,7 @@
    ["-h" "--help"]])
 
 (defn load-db-conn
+  "Loads the db connection from a YAML file."
   [options]
   (let [yaml-file (:database options)]
     (if (nil? yaml-file)
@@ -249,11 +293,14 @@
             config (get data env)]
         (assoc {} :user (:username config)
                   :password (when (:password config) (:password config))
-                  :host (get config :host "localhost-waza")
+                  :host (get config :host "localhost")
                   :dbname (:database config)
                   :dbtype "mysql")))))
 
-(defn -main [& args]
+(defn -main
+  "To be used as a CLI interface. Understands the params and configures
+  the saft for them."
+  [& args]
   (let [data (cli/parse-opts args cli-options)
         year (get-in data [:options :year] 2016)
         month-start (get-in data [:options :month] 1)
