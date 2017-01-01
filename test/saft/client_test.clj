@@ -31,3 +31,27 @@
     (is (= expected
            (xml/emit-str (client/client-xml client))))))
 
+(deftest final-consumer?-test
+  (is (true? (client/final-consumer? {:id 10 :fiscal_id nil})))
+  (is (true? (client/final-consumer? {:id 10 :fiscal_id ""})))
+  (is (false? (client/final-consumer? {:id 10 :fiscal_id "1234"}))))
+
+(deftest fiscal-id-test
+  (is (= client/final-consumer-fiscal-id (client/fiscal-id {})))
+  (is (= client/final-consumer-fiscal-id (client/fiscal-id {:fiscal_id nil})))
+  (is (= client/final-consumer-fiscal-id (client/fiscal-id {:fiscal_id ""})))
+  (is (= "1234" (client/fiscal-id {:fiscal_id "1234"}))))
+
+(deftest portuguese?-test
+  (is (true? (client/portuguese? {:country "Portugal"})))
+  (is (true? (client/portuguese? {:country nil})))
+  (is (false? (client/portuguese? {:country "Alaska"}))))
+
+(deftest postal-code-test
+  (is (= "1234-123" (client/postal-code {:country "Portugal" :postal_code "1234-123"})))
+  (is (= "1234-123" (client/postal-code {:country "Portugal" :postal_code "1234-123 Amadora"})))
+  (is (= "1234-123" (client/postal-code {:country nil :postal_code "1234-123 Amadora"})))
+  (is (= "0000-000" (client/postal-code {:country "Portugal" :postal_code nil})))
+  (is (= "0000-000" (client/postal-code {:country "Germany" :postal_code nil})))
+  (is (= "1234 Fora de Portug" (client/postal-code {:country "Germany" :postal_code "1234 Fora de Portugal"})))
+  )
