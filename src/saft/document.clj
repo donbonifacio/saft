@@ -1,4 +1,5 @@
-(ns saft.document
+(ns ^{:added "0.1.0" :author "Pedro Pereira Santos"}
+  saft.document
   (:require
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
@@ -7,6 +8,7 @@
     [saft.item :as item]))
 
 (defn documents-query
+  "Returns all the invoicing documents for the given period."
   [{:keys [db account-id account begin end]}]
   (common/query-time-info "[SQL] Fetch documents"
      (j/query db [(str "select id, type, sequence_number,
@@ -26,6 +28,7 @@
                   account-id])))
 
 (defn owner-documents-query
+  "Returns all the owner documents for the given documents."
   [{:keys [db account-id account begin end]} documents]
   (let [doc-ids (doall (distinct (keep :owner_invoice_id documents)))]
     (common/query-time-info (str "[SQL] Fetch " (count doc-ids)  " owner documents")
@@ -38,6 +41,7 @@
                                 and id in (" (clojure.string/join "," doc-ids) ")")])))))
 
 (defn documents-by-ids-query
+  "Returns all documents for the given document ids."
   [{:keys [db account-id account begin end]} doc-ids]
   (common/query-time-info (str "[SQL] Fetch " (count doc-ids)  " documents by ids")
     (if (empty? doc-ids)
@@ -47,13 +51,16 @@
                         from invoices
                         where id in (" (clojure.string/join "," doc-ids) ")")]))))
 
-(defn prepare-items [cache account doc]
+(defn prepare-items
+  "Adds the items to the doc."
+  [cache account doc]
   (cond
     (some? (:items doc)) doc
     (some? (get-in cache [:items (:id doc)])) (assoc doc :items (get-in cache [:items (:id doc)]))
     :else (assert nil "No items!")))
 
 (def type-hash
+  "Maps a type name to a type code."
   {nil "FT"
    "Invoice" "FT"
    "FacturaRecibo" "FR"
@@ -80,7 +87,9 @@
     (assert code (str "No code for " type-name))
     code))
 
-(defn invoice-status [doc]
+(defn invoice-status
+  "The saft status of a document."
+  [doc]
   (if (= "canceled" (:status doc))
     "A"
     "N"))
@@ -95,7 +104,9 @@
        "/"
        (:document_number doc)))
 
-(defn movement-type [type-name]
+(defn movement-type
+  "Converts a guide type to a guide code."
+  [type-name]
   (case type-name
     "Shipping" "GR"
     "Transport" "GT"
@@ -111,50 +122,69 @@
        "/"
        (:document_number doc)))
 
-(defn final-date [doc]
+(defn final-date
+  "The final date of a document."
+  [doc]
   (common/saft-date (or (:final_date doc)
                         (:updated_at doc))))
 
-(defn total-taxes [doc]
+(defn total-taxes
+  "Gets the total taxes related to the given document."
+  [doc]
   (let [retention (:retention doc)]
     (if (and (some? retention) (pos? retention))
       (:total_taxes doc)
       (- (:total doc) (:total_before_taxes doc)))))
 
-(defn gross-total [doc]
+(defn gross-total
+  "Gets the gross total for the document."
+  [doc]
   (+ (:total_before_taxes doc) (:total_taxes doc)))
 
-(defn retention [doc]
+(defn retention
+  "Gets the total retention for the given document."
+  [doc]
   (*
    (/ (:retention doc) 100)
    (:total_before_taxes doc)))
 
-(defn client [cache doc]
+(defn client
+  "Gets the client from the cache."
+  [cache doc]
   (first (get-in cache [:clients [(:client_id doc) (:client_version doc)]])))
 
-(defn customer-id [cache doc]
+(defn customer-id
+  "Gets the customer id for the given document."
+  [cache doc]
   (if-let [client (client cache doc)]
     (if (or (nil? (:fiscal_id client)) (empty? (:fiscal_id client)))
       0
       (:id client))
     0))
 
-(defn owner-invoice-number [cache account doc]
+(defn owner-invoice-number
+  "Gets the document number for the owner document."
+  [cache account doc]
   (let [owner-invoice-id (:owner_invoice_id doc)]
-    (if (or (nil? owner-invoice-id)
-            (= owner-invoice-id (:id doc)))
-      nil
-      (let [owner-invoice (first (get-in cache [:owner-documents owner-invoice-id]))]
-        (assert owner-invoice (str "No document for owner-invoice-id " owner-invoice-id " - invoice " (:id doc)))
-        (cond
-          (some? (:raw_owner_invoice owner-invoice))
-            (:raw_owner_invoice owner-invoice)
-          (common/guide? (:type owner-invoice))
-            (guide-number owner-invoice)
-          :else
-            (number cache account owner-invoice))))))
+    (cond
+      (or (nil? owner-invoice-id)
+          (= owner-invoice-id (:id doc)))
+        nil
+
+      (some? (:raw_owner_invoice doc))
+        (:raw_owner_invoice doc)
+
+      :else
+        (let [owner-invoice (first (get-in cache [:owner-documents owner-invoice-id]))]
+          (assert owner-invoice (str "No document for owner-invoice-id " owner-invoice-id " - invoice " (:id doc)))
+          (cond
+            (common/guide? (:type owner-invoice))
+              (guide-number cache account owner-invoice)
+            :else
+              (number cache account owner-invoice))))))
 
 (defn document-xml
+  "Converts the document in SAFT-T XML."
   [cache account doc]
   (let [doc (prepare-items cache account doc)]
     (xml/element :Invoice {}

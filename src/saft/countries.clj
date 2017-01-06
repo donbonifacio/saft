@@ -1,6 +1,7 @@
 (ns saft.countries)
 
-(def countries 
+(def countries
+  "List of countries with country code and name."
   [{:name "Portugal" :code "PT" :phone-code "351"}
    {:name "Afghanistan" :code "AF" :phone-code "93"}
    {:name "Albania" :code "AL" :phone-code "355"}
@@ -242,9 +243,13 @@
   {:name "Zambia" :code "ZM" :phone-code "260"}
   {:name "Zimbabwe" :code "ZW" :phone-code "263"}])
 
-(defn find-by-name [country-name]
+(defn find-by-name
+  "Returns a country given the country name."
+  [country-name]
   (first (filter #(= country-name (:name %)) countries)))
 
-(defn country-code [country-name]
+(defn country-code
+  "Returns a country code based on a country name. Defaults to PT."
+  [country-name]
   (or (:code (find-by-name country-name))
       "PT"))

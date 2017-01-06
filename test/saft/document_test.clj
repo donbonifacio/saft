@@ -80,6 +80,25 @@
     (is (= expected
            (xml/emit-str (document/document-xml {} account invoice))))))
 
+(deftest prepare-items-test
+  (let [document {:id 1}
+        account {}
+        items [{:id 1}]
+        cache {:items {1 items}}]
+    (is (= items
+           (:items (document/prepare-items cache account document))))
+    (is (= items
+          (:items (document/prepare-items {} account (assoc document :items items)))))))
+
+(deftest convert-factura-recibo-test
+  (is (= "CreditNote" (document/convert-factura-recibo {} "CreditNote")))
+  (is (= "Invoice" (document/convert-factura-recibo {} "Invoice")))
+  (is (= "InvoiceReceipt" (document/convert-factura-recibo {} "InvoiceReceipt")))
+  (is (= nil (document/convert-factura-recibo {} nil)))
+
+  (is (= "InvoiceReceipt" (document/convert-factura-recibo
+                            {:factura_recibo true} "Invoice"))))
+
 (deftest type-code-test
   (is (= "FT" (document/type-code {} nil)))
   (is (= "FT" (document/type-code {} "Invoice")))
@@ -90,7 +109,63 @@
   (is (= "VD" (document/type-code {} "CashInvoice")))
   (is (= "FR" (document/type-code {:factura_recibo true} "Invoice"))))
 
+(deftest saft-status-test
+  (is (= "A" (document/invoice-status {:status "canceled"})))
+  (is (= "N" (document/invoice-status {:status "sent"})))
+  (is (= "N" (document/invoice-status {:status "settled"}))))
+
 (deftest number-test
-  (= "FT A/1" (document/number {} {} {:type "Invoice"
-                                      :document_serie "A"
-                                      :document_number "1"})))
+  (is (= "FT A/1" (document/number {} {} {:type "Invoice"
+                                        :document_serie "A"
+                                        :document_number "1"}))))
+
+(deftest guide-number-test
+  (is (= "GR A/1" (document/guide-number {} {} {:type "Shipping"
+                                                :document_serie "A"
+                                                :document_number "1"}))))
+
+(deftest total-taxes-test
+  (is (= 2 (document/total-taxes {:total 10 :total_before_taxes 8})))
+  (is (= 2 (document/total-taxes {:total 10 :total_before_taxes 8 :retention 0})))
+  (is (= 2 (document/total-taxes {:retention 10 :total_taxes 2}))))
+
+(deftest gross-total-test
+  (is (= 12 (document/gross-total {:total_before_taxes 10 :total_taxes 2}))))
+
+(deftest retention-test
+  (is (= 100 (document/retention {:retention 100 :total_before_taxes 100}))))
+
+(deftest client-test
+  (let [client {:id 1 :version 1}
+        cache {:clients {[1 1] [client]}}]
+    (is (= client (document/client cache {:client_id 1 :client_version 1})))))
+
+(deftest customer-id-test
+  (let [client {:id 1 :version 1 :fiscal_id "123"}
+        cache {:clients {[1 1] [client]}}]
+    (is (= 0 (document/customer-id cache {})))
+    (is (= 1 (document/customer-id cache {:client_id 1 :client_version 1})))))
+
+(deftest owner-invoice-number-test
+  (is (nil? (document/owner-invoice-number {} {} {})))
+  (is (nil? (document/owner-invoice-number {} {} {:id 1 :owner_invoice_id 1})))
+
+  (testing "Usual scenario, document references other document"
+    (let [document {:owner_invoice_id 1}
+          owner-document {:id 1 :document_number 1 :document_serie "A"}
+          account {}
+          cache {:owner-documents {1 [owner-document]}}]
+      (is (= "FT A/1" (document/owner-invoice-number cache account document)))))
+
+  (testing "Usual scenario, document references other guide"
+    (let [document {:owner_invoice_id 1}
+          owner-document {:id 1 :document_number 1 :document_serie "A" :type "Shipping"}
+          account {}
+          cache {:owner-documents {1 [owner-document]}}]
+      (is (= "GR A/1" (document/owner-invoice-number cache account document)))))
+
+  (testing "Document has raw_owner_invoice"
+    (let [document {:owner_invoice_id 1 :raw_owner_invoice "FT A/2"}
+          account {}
+          cache {}]
+      (is (= "FT A/2" (document/owner-invoice-number cache account document))))))
