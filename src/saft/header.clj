@@ -1,10 +1,14 @@
-(ns saft.header
+(ns ^{:added "0.1.0" :author "Pedro Pereira Santos"}
+  saft.header
+  "SAF-T Header handling."
   (:require
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
     [saft.common :as common]))
 
-(defn header-xml [args account]
+(defn header-xml
+  "Generates the XML elements of a SAF-T header."
+  [args account]
   (xml/element :Header {}
                (xml/element :AuditFileVersion {} "1.03_01")
                (xml/element :CompanyID {} (:fiscal_id account))
@@ -26,4 +30,3 @@
                (xml/element :SoftwareCertificateNumber {})
                (xml/element :ProductID {})
                (xml/element :ProductVersion {} "1.0")))
-

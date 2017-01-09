@@ -1,5 +1,6 @@
 (ns ^{:added "0.1.0" :author "Pedro Pereira Santos"}
   saft.guide-totals
+  "Loads and generates SAF-T guide totals."
   (:require
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
