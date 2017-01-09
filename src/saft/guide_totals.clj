@@ -1,10 +1,12 @@
-(ns saft.guide-totals
+(ns ^{:added "0.1.0" :author "Pedro Pereira Santos"}
+  saft.guide-totals
   (:require
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
     [saft.common :as common]))
 
 (defn run
+  "Loads the guide totals for the given period."
   [db {:keys [begin end account]}]
   (common/query-time-info "[SQL] Guide totals query"
     (let [not_canceled (str "(invoices.status <> 'canceled')")
@@ -32,6 +34,8 @@
           result (first (j/query db [sql]))]
       result)))
 
-(defn totals-xml [totals]
+(defn totals-xml
+  "Generates XML elemnts for guide totals."
+  [totals]
   [(xml/element :NumberOfMovementLines {} (:line_count totals))
    (xml/element :TotalQuantityIssued {} (:quantity totals))])

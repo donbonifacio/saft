@@ -1,4 +1,5 @@
-(ns saft.guide-item
+(ns ^{:added "0.1.0" :author "Pedro Pereira Santos"}
+  saft.guide-item
   (:require
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
@@ -8,6 +9,7 @@
     [saft.common :as common]))
 
 (defn guide-items-query
+  "Loads all the items of the guide document ids provided."
   [{:keys [db]} doc-ids]
   (if-let [doc-ids (seq doc-ids)]
     (common/query-time-info (str "[SQL] Fetch guide items for " (count doc-ids) " document(s)")
@@ -19,7 +21,9 @@
                               where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
     []))
 
-(defn guide-item-xml [idx client doc item cache]
+(defn guide-item-xml
+  "Generates the XML for a guide item."
+  [idx client doc item cache]
   (let [account (:account cache)]
     (xml/element :Line {}
                  (xml/element :LineNumber {} (inc idx))
@@ -36,5 +40,4 @@
                             (xml/element :TaxType {} "IVA")
                             (xml/element :TaxCountryRegion {} (item/tax-region client item))
                             (xml/element :TaxCode {} (tax-table/code (:tax_value item)))
-                            (xml/element :TaxPercentage {} (:tax_value item)))
-                 )))
+                            (xml/element :TaxPercentage {} (:tax_value item))))))

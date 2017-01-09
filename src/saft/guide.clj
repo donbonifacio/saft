@@ -1,4 +1,5 @@
-(ns saft.guide
+(ns ^{:added "0.1.0" :author "Pedro Pereira Santos"}
+  saft.guide
   (:require
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
@@ -10,6 +11,7 @@
     [saft.item :as item]))
 
 (defn guides-query
+  "Gets all the guides between begin and end for the givena account-id."
   [{:keys [db account-id account begin end]}]
   (common/query-time-info "[SQL] Fetch guides"
      (j/query db [(str " select invoices.id, type, sequence_number,
@@ -43,9 +45,11 @@
                                and tax_location_to.name = 'Portugal'
                                and clients.country = 'Portugal'")])))
 
-(defn address [doc k]
+(defn address
+  "Generates XMl for an address element."
+  [doc k]
   (xml/element :Address {}
-               (xml/element :AddressDetail {} (common/get-str doc (keyword (str "address_" k "_detail")) 10))
+               (xml/element :AddressDetail {} (common/get-str doc (keyword (str "address_" k "_detail")) 100))
                (xml/element :City {} (common/get-str doc (keyword (str "address_" k "_city")) 50))
                (xml/element :PostalCode {} (get doc (keyword (str "address_" k "_postal_code"))))
                (xml/element :Country {}
@@ -53,15 +57,19 @@
                                "PT"
                                common/unknown))))
 
-(defn movement-start-time [doc]
+(defn movement-start-time
+  "Gets the movement start time for the given document."
+  [doc]
   (common/saft-date (or (:loaded_at doc)
                         (:final_date doc)
                         (:updated_at doc))))
 
 (defn guide-xml
+  "Generates XMl for a guide document."
   [cache account doc]
   (let [account-version (account/for-document cache account doc)
-        items (get-in cache [:items (:id doc)])]
+        items (or (:items doc)
+                  (get-in cache [:items (:id doc)]))]
     (xml/element :StockMovement {}
                  (xml/element :DocumentNumber {} (document/guide-number cache account doc))
                  (xml/element :DocumentStatus {}
@@ -89,6 +97,4 @@
                  (xml/element :DocumentTotals {}
                                (xml/element :TaxPayable {} (document/total-taxes doc))
                                (xml/element :NetTotal {} (:total_before_taxes doc))
-                               (xml/element :GrossTotal {} (document/gross-total doc)))
-                 
-                 )))
+                               (xml/element :GrossTotal {} (document/gross-total doc))))))
