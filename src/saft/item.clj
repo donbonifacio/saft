@@ -1,4 +1,6 @@
-(ns saft.item
+(ns ^{:added "0.1.0" :author "Pedro Pereira Santos"}
+  saft.item
+  "Loads and generates document items information."
   (:require
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
@@ -7,6 +9,7 @@
     [saft.countries :as countries]))
 
 (defn items-query
+  "Loads all the items for the given document ids."
   [{:keys [db]} doc-ids]
   (if-let [doc-ids (seq doc-ids)]
     (common/query-time-info (str "[SQL] Fetch items for " (count doc-ids) " document(s)")
@@ -18,38 +21,54 @@
                               where invoice_id in (" (clojure.string/join "," doc-ids) ")")]))
     []))
 
-(defn description [product]
+(defn description
+  "Gets the description for the given product."
+  [product]
   (if (or (nil? (:description product)) (empty? (:description product)))
     (common/get-str product :name 199)
     (common/get-str product :description 199)))
 
-(defn exempt? [item]
+(defn exempt?
+  "True if an item is exempt from taxes."
+  [item]
   (and (some? (:tax_value item)) (zero? (:tax_value item))))
 
-(defn tax-exemption-reason [doc]
+(defn tax-exemption-reason
+  "Returns the tax exemption reason for the given document."
+  [doc]
   (if (:tax_exemption_message doc)
     (:tax_exemption_message doc)
     "Não sujeito; não tributado (ou similar)."))
 
-(defn discount-applied? [item]
+(defn discount-applied?
+  "True if the given item has an applied discount."
+  [item]
   (and (some? (:discount_amount item))
        (pos? (:discount_amount item))))
 
-(defn settlement-amount [item]
+(defn settlement-amount
+  "Returns the settlement amount for the given item."
+  [item]
   (:discount_amount item))
 
-(defn tax-region-from-item [item]
+(defn tax-region-from-item
+  "Returns the tax region from the item."
+  [item]
   (if (nil? (:tax_region item))
     "PT"
     (clojure.string/replace (:tax_region item) #"\s" "")))
 
-(defn tax-region [client item]
+(defn tax-region
+  "Gets the tax region for the item, considering the item region."
+  [client item]
   (let [region (tax-region-from-item item)]
     (if (not= "Desconhecido" region)
       region
       (countries/country-code (:country client)))))
 
-(defn item-xml [idx client doc owner-invoice-number item]
+(defn item-xml
+  "Generates XML for the given item."
+  [idx client doc owner-invoice-number item]
   (xml/element :Line {}
                (xml/element :LineNumber {} (inc idx))
                (xml/element :ProductCode {} (common/get-str item :name))
@@ -74,4 +93,3 @@
                  (xml/element :TaxExemptionReason {} (tax-exemption-reason doc)))
                (when (discount-applied? item)
                  (xml/element :SettlementAmount {} (settlement-amount item)))))
-
