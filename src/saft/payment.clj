@@ -1,4 +1,6 @@
-(ns saft.payment
+(ns ^{:added "0.1.0" :author "Pedro Pereira Santos"}
+  saft.payment
+  "Loads and generates SAF-T payment information."
   (:require
     [clojure.data.xml :as xml]
     [clojure.java.jdbc :as j]
@@ -10,6 +12,7 @@
     [saft.item :as item]))
 
 (defn receipts-query
+  "Gets all the receipts from the given account between begin and end."
   [{:keys [db account-id account begin end]}]
   (common/query-time-info "[SQL] Fetch payments"
      (j/query db [(str "select id, sequence_number,
@@ -27,22 +30,30 @@
                           and (invoices.date between '" begin "' and '" end "')
                         order by invoices.id asc;")])))
 
-(defn payment-type [account-version]
+(defn payment-type
+  "Returns the payment type for the given account."
+  [account-version]
   (if (:iva_caixa account-version)
     "RC"
     "RG"))
 
-(defn receipt-number [account-version doc]
+(defn receipt-number
+  "Gets the receipt number for the given document."
+  [account-version doc]
   (str (payment-type account-version)
        " "
        (:document_serie doc)
        "/"
        (:document_number doc)))
 
-(defn gross-total [owner-invoice doc]
-  (+ (:total_taxes owner-invoice) (:total_before_taxes doc)))
+(defn gross-total
+  "Gets the gross total for the document."
+  [owner-invoice doc]
+  (+ (:total_taxes owner-invoice)
+     (:total_before_taxes doc)))
 
 (defn payment-xml
+  "Generates XML for a payment document."
   [cache account doc]
   (let [account-version (account/for-document cache account doc)
         owner-invoice (first (get-in cache [:owner-documents (:owner_invoice_id doc)]))
@@ -66,8 +77,4 @@
                  (xml/element :DocumentTotals {}
                               (xml/element :TaxPayable {} (document/total-taxes doc))
                               (xml/element :NetTotal {} (:total_before_taxes doc))
-                              (xml/element :GrossTotal {} (gross-total owner-invoice doc)))
-
-                 )
-                 )
-    )
+                              (xml/element :GrossTotal {} (gross-total owner-invoice doc))))))
