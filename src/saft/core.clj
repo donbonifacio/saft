@@ -47,6 +47,7 @@
   [{:keys [account-id begin end] :as args}]
   (let [account (account/account-query args)
         args (assoc args :account account)]
+    (assert account (str "No account for " account-id))
     (if (:preload-all-documents? args)
       (let [documents (document/documents-query args)
             receipts (payment/receipts-query args)

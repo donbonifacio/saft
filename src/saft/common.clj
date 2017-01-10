@@ -52,7 +52,7 @@
     (try
       (j/query db sql)
       (catch Exception e
-        (println "Error running SQL query:" sql)
+        (println "Error running SQL query:" label sql)
         (throw e)))))
 
 (defn debit-documents

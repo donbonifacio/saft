@@ -39,7 +39,7 @@
                inner join tax_countries as tax_location_from on (tax_location_from.id = address_from.tax_location_id)
                where " (common/saft-guides-condition account) "
                      and (invoices.status in ("(common/saft-status-str)"))
-                     and invoices.account_id = " (:id account) "
+                     and invoices.account_id = " account-id "
                      and (invoices.date between '" begin "' and '" end "')
                      and invoices.account_reset_id is null
                      and tax_location_from.name = 'Portugal'

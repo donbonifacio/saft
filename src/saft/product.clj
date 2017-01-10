@@ -6,19 +6,18 @@
 
 (defn products-query
   [{:keys [db account-id account begin end]}]
-  (common/query-time-info "[SQL] Fetch products"
-    (j/query db [(str "select distinct products.id,
-                         products.description, products.name, products.unit
-                       from products
-                         inner join invoice_items on (products.id = invoice_items.product_id)
-                         inner join invoices on (invoices.id = invoice_items.invoice_id)
-                       where invoices.account_reset_id is null
-                         and invoices.account_id = ?
-                         and " (common/saft-types-condition account) "
-                         and status in (" (common/saft-status-str)  ")
-                         and (invoices.date between '" begin "' and '" end "')
-                       order by products.id asc")
-                 account-id])))
+  (common/do-query db "[SQL] Fetch products"
+    (str "select distinct products.id,
+             products.description, products.name, products.unit
+           from products
+             inner join invoice_items on (products.id = invoice_items.product_id)
+             inner join invoices on (invoices.id = invoice_items.invoice_id)
+           where invoices.account_reset_id is null
+             and invoices.account_id = " account-id "
+             and " (common/saft-types-condition account) "
+             and status in (" (common/saft-status-str)  ")
+             and (invoices.date between '" begin "' and '" end "')
+           order by products.id asc")))
 
 (defn description [product]
   (if (or (nil? (:description product)) (empty? (:description product)))

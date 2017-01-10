@@ -206,13 +206,13 @@
                    (xml/element :SourceID {} (:id account))
                    (xml/element :SystemEntryDate {} (final-date doc))
                    (xml/element :CustomerID {} (customer-id cache doc))
-                   (map-indexed (fn item-xml [idx item]
-                                  (item/item-xml idx
-                                                 (client cache doc)
-                                                 doc
-                                                 (owner-invoice-number cache account doc)
-                                                 item))
-                                (:items doc))
+                   (->> (:items doc)
+                        (map-indexed (fn item-xml [idx item]
+                                       (item/item-xml idx
+                                                      (client cache doc)
+                                                      doc
+                                                      (owner-invoice-number cache account doc)
+                                                      item))))
                    (xml/element :DocumentTotals {}
                                 (xml/element :TaxPayable {} (total-taxes doc))
                                 (xml/element :NetTotal {} (:total_before_taxes doc))

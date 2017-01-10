@@ -6,17 +6,16 @@
 
 (defn run
   [db {:keys [begin end account]}]
-  (common/query-time-info "[SQL] Fetch tax table"
-    (let [sql (str "select distinct taxes.id, taxes.name, region, value "
-                    "from taxes "
-                       "inner join invoice_items on (invoice_items.tax_id = taxes.id) "
-                       "inner join invoices on (invoices.id = invoice_items.invoice_id) "
-                      "where invoices.account_id = " (:id account) " "
-                       "and invoices.account_reset_id is null "
-                      "and (invoices.status in (" (common/saft-status-str) ")) "
-                      "and " (common/saft-types-condition account) " "
-                      "and (invoices.date between '" begin "' and '" end "');")]
-      (j/query db [sql]))))
+  (common/do-query db "[SQL] Fetch tax table"
+    (str "select distinct taxes.id, taxes.name, region, value "
+          "from taxes "
+             "inner join invoice_items on (invoice_items.tax_id = taxes.id) "
+             "inner join invoices on (invoices.id = invoice_items.invoice_id) "
+            "where invoices.account_id = " (:id account) " "
+             "and invoices.account_reset_id is null "
+            "and (invoices.status in (" (common/saft-status-str) ")) "
+            "and " (common/saft-types-condition account) " "
+            "and (invoices.date between '" begin "' and '" end "');")))
 
 (defn region [tax]
   (let [region (:region tax)]
