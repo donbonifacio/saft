@@ -14,37 +14,37 @@
 (defn guides-query
   "Gets all the guides between begin and end for the givena account-id."
   [{:keys [db account-id account begin end]}]
-  (common/query-time-info "[SQL] Fetch guides"
-     (j/query db [(str " select invoices.id, type, sequence_number,
-                            document_number, document_serie,
-                            retention, loaded_at, at_doc_code_id,
-                            total, total_taxes, total_before_taxes,
-                            invoices.account_id, account_version, saft_hash,
-                            invoices.created_at, invoices.updated_at, final_date, date,
-                            client_id, client_version, owner_invoice_id,
-                            tax_exemption_message,
-                            address_from.detail as address_from_detail,
-                            address_from.city as address_from_city,
-                            address_from.postal_code as address_from_postal_code,
-                            tax_location_from.name as address_from_country,
-                            address_to.detail as address_to_detail,
-                            address_to.city as address_to_city,
-                            address_to.postal_code as address_to_postal_code,
-                            tax_location_to.name as address_to_country
-                         from invoices
-                         inner join clients on (invoices.client_id = clients.id)
-                         inner join addresses as address_to on (invoices.address_to_id = address_to.id)
-                         inner join addresses as address_from on (invoices.address_from_id = address_from.id)
-                         inner join tax_countries as tax_location_to on (tax_location_to.id = address_to.tax_location_id)
-                         inner join tax_countries as tax_location_from on (tax_location_from.id = address_from.tax_location_id)
-                         where " (common/saft-guides-condition account) "
-                               and (invoices.status in ("(common/saft-status-str)"))
-                               and invoices.account_id = " (:id account) "
-                               and (invoices.date between '" begin "' and '" end "')
-                               and invoices.account_reset_id is null
-                               and tax_location_from.name = 'Portugal'
-                               and tax_location_to.name = 'Portugal'
-                               and clients.country = 'Portugal'")])))
+  (common/do-query db "[SQL] Fetch guides"
+    (str " select invoices.id, type, sequence_number,
+                  document_number, document_serie,
+                  retention, loaded_at, at_doc_code_id,
+                  total, total_taxes, total_before_taxes,
+                  invoices.account_id, account_version, saft_hash,
+                  invoices.created_at, invoices.updated_at, final_date, date,
+                  client_id, client_version, owner_invoice_id,
+                  tax_exemption_message,
+                  address_from.detail as address_from_detail,
+                  address_from.city as address_from_city,
+                  address_from.postal_code as address_from_postal_code,
+                  tax_location_from.name as address_from_country,
+                  address_to.detail as address_to_detail,
+                  address_to.city as address_to_city,
+                  address_to.postal_code as address_to_postal_code,
+                  tax_location_to.name as address_to_country
+               from invoices
+               inner join clients on (invoices.client_id = clients.id)
+               inner join addresses as address_to on (invoices.address_to_id = address_to.id)
+               inner join addresses as address_from on (invoices.address_from_id = address_from.id)
+               inner join tax_countries as tax_location_to on (tax_location_to.id = address_to.tax_location_id)
+               inner join tax_countries as tax_location_from on (tax_location_from.id = address_from.tax_location_id)
+               where " (common/saft-guides-condition account) "
+                     and (invoices.status in ("(common/saft-status-str)"))
+                     and invoices.account_id = " (:id account) "
+                     and (invoices.date between '" begin "' and '" end "')
+                     and invoices.account_reset_id is null
+                     and tax_location_from.name = 'Portugal'
+                     and tax_location_to.name = 'Portugal'
+                     and clients.country = 'Portugal'")))
 
 (defn address
   "Generates XMl for an address element."

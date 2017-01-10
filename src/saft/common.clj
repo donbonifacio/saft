@@ -2,6 +2,7 @@
   saft.common
   (:require
     [clojure.data.xml :as xml]
+    [clojure.java.jdbc :as j]
     [clj-time.format :as f]
     [clj-time.coerce :as c]
     [clj-time.core :as t]))
@@ -42,6 +43,17 @@
                    (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs "
                    "(loaded " (if (map? ret#) 1 (count ret#)) " rows)"))
      ret#))
+
+(defn do-query
+  "Performs the given query against the db. Tracks the time and if with
+  error, outputs the full query."
+  [db label sql]
+  (query-time-info label
+    (try
+      (j/query db sql)
+      (catch Exception e
+        (println "Error running SQL query:" sql)
+        (throw e)))))
 
 (defn debit-documents
   "All the possible debit documents."
